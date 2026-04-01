@@ -111,12 +111,12 @@ Optionally add a GitHub token for higher API rate limits (see below).
 ### 5. Build and Start
 
 ```bash
-npm run db:push   # creates tables and seeds initial projects
+npm run db:push   # creates database tables
 npm run build     # compiles frontend + bundles server
 node dist/index.cjs
 ```
 
-Open `http://localhost:5000` in your browser.
+Open `http://localhost:5000` in your browser. The app seeds your library with starter projects on first launch.
 
 ---
 
@@ -140,6 +140,7 @@ WorkingDirectory=/home/YOUR_USERNAME/foss-radar
 ExecStart=/usr/bin/node /home/YOUR_USERNAME/foss-radar/dist/index.cjs
 Restart=on-failure
 RestartSec=5
+Environment=NODE_ENV=production
 EnvironmentFile=/home/YOUR_USERNAME/foss-radar/.env
 
 [Install]
