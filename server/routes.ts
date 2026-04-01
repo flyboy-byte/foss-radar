@@ -120,8 +120,8 @@ export async function registerRoutes(
       });
 
       res.json({ project: updated, githubInfo: info });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message || "Monitoring failed" });
+    } catch {
+      res.status(500).json({ message: "Monitoring failed" });
     }
   });
 
@@ -158,8 +158,8 @@ export async function registerRoutes(
       }
 
       res.json({ results, total: withGitHub.length });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message || "Batch monitoring failed" });
+    } catch {
+      res.status(500).json({ message: "Batch monitoring failed" });
     }
   });
 
@@ -207,8 +207,8 @@ export async function registerRoutes(
       }
 
       res.json({ results, count: results.length });
-    } catch (err: any) {
-      res.status(502).json({ message: err.message || "Discovery search failed" });
+    } catch {
+      res.status(502).json({ message: "Discovery search failed" });
     }
   });
 
@@ -249,7 +249,7 @@ export async function registerRoutes(
         ...(language ? [language.toLowerCase()] : []),
       ].filter((t, i, a) => a.indexOf(t) === i).slice(0, 6);
 
-      const p = await storage.createProject({
+      const created = await storage.createProject({
         name,
         description: description ?? "",
         category,
@@ -257,13 +257,15 @@ export async function registerRoutes(
         url: htmlUrl,
         githubUrl: htmlUrl,
         tags,
+        setupNotes: [],
+        alternatives: [],
+      });
+
+      const p = await storage.updateProject(created.id, {
         githubStars: stars,
         githubForks: forks,
         githubLicense: license ?? undefined,
-        setupNotes: [],
-        alternatives: [],
-        isSeeded: false,
-      } as any);
+      });
 
       res.status(201).json(p);
     } catch {
