@@ -8,7 +8,7 @@ APP_ID="foss-radar"
 # ──────────────────────────────────────────────
 
 DESKTOP_FILE="$HOME/.local/share/applications/$APP_ID.desktop"
-ICON_FILE="$HOME/.local/share/icons/hicolor/scalable/apps/$APP_ID.svg"
+ICON_FILE="$HOME/.local/share/icons/hicolor/256x256/apps/$APP_ID.png"
 
 removed=0
 
