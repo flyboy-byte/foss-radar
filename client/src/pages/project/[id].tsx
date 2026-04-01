@@ -41,6 +41,33 @@ function formatNumber(n: number | null | undefined) {
   return String(n);
 }
 
+function AlternativesList({ ids }: { ids: string[] }) {
+  const { data: allProjects } = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => fetch("/api/projects").then(r => r.json()),
+  });
+  if (!allProjects) return null;
+  const matched = ids
+    .map((id: string) => allProjects.find((p: { id: string; name: string }) => p.id === id))
+    .filter(Boolean);
+  if (matched.length === 0) return (
+    <div className="p-4 text-center">
+      <p className="text-muted-foreground font-mono text-xs italic">No alternatives tracked.</p>
+    </div>
+  );
+  return (
+    <div className="divide-y divide-white/5">
+      {matched.map((p: { id: string; name: string }) => (
+        <Link key={p.id} href={`/project/${p.id}`}>
+          <div className="p-4 hover:bg-secondary/30 cursor-pointer transition-colors">
+            <div className="font-mono text-xs text-primary">{p.name}</div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export default function ProjectDetail() {
   const params = useParams();
   const [, navigate] = useLocation();
@@ -368,15 +395,7 @@ export default function ProjectDetail() {
                 </CardHeader>
                 <CardContent className="p-0">
                   {project.alternatives && project.alternatives.length > 0 ? (
-                    <div className="divide-y divide-white/5">
-                      {project.alternatives.map((id) => (
-                        <Link key={id} href={`/project/${id}`}>
-                          <div className="p-4 hover:bg-secondary/30 cursor-pointer transition-colors">
-                            <div className="font-mono text-xs text-primary">{id}</div>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
+                    <AlternativesList ids={project.alternatives} />
                   ) : (
                     <div className="p-4 text-center">
                       <p className="text-muted-foreground font-mono text-xs italic">No alternatives tracked.</p>
