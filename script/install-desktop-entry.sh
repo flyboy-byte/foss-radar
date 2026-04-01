@@ -10,10 +10,15 @@ APP_URL="http://127.0.0.1:5000"
 
 # ──────────────────────────────────────────────
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_DIR="$HOME/.local/share/applications"
+ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
 DESKTOP_FILE="$DESKTOP_DIR/$APP_ID.desktop"
+ICON_FILE="$ICON_DIR/$APP_ID.svg"
 
-mkdir -p "$DESKTOP_DIR"
+mkdir -p "$DESKTOP_DIR" "$ICON_DIR"
+
+cp "$SCRIPT_DIR/$APP_ID.svg" "$ICON_FILE"
 
 cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
@@ -22,11 +27,12 @@ Type=Application
 Name=$APP_NAME
 Comment=Open $APP_NAME
 Exec=xdg-open $APP_URL
-Icon=applications-internet
+Icon=$APP_ID
 Terminal=false
 Categories=Network;Utility;
 StartupNotify=true
 EOF
 
-echo "✓ Desktop entry installed: $DESKTOP_FILE"
+echo "✓ Icon installed:        $ICON_FILE"
+echo "✓ Desktop entry created: $DESKTOP_FILE"
 echo "  Launch from your app menu or run: xdg-open $APP_URL"
