@@ -1,3 +1,21 @@
+import { readFileSync, existsSync } from "fs";
+import { resolve } from "path";
+
+// Load .env file if present (for local production runs — Node v20.6+ has --env-file
+// but this works on any version without extra packages)
+const envPath = resolve(process.cwd(), ".env");
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx < 1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+    if (!(key in process.env)) process.env[key] = val;
+  }
+}
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
