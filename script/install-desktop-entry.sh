@@ -12,13 +12,13 @@ APP_URL="http://127.0.0.1:5000"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_DIR="$HOME/.local/share/applications"
-ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
+ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
 DESKTOP_FILE="$DESKTOP_DIR/$APP_ID.desktop"
-ICON_FILE="$ICON_DIR/$APP_ID.svg"
+ICON_FILE="$ICON_DIR/$APP_ID.png"
 
 mkdir -p "$DESKTOP_DIR" "$ICON_DIR"
 
-cp "$SCRIPT_DIR/$APP_ID.svg" "$ICON_FILE"
+cp "$SCRIPT_DIR/$APP_ID.png" "$ICON_FILE"
 
 cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
