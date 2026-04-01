@@ -186,6 +186,28 @@ If you only need it on your local machine (not other devices on your network), n
 
 ---
 
+## Linux Desktop Launcher
+
+Adds FOSS Radar to your app menu so you can launch it without opening a terminal.
+
+```bash
+bash script/install-desktop-entry.sh
+```
+
+This creates `~/.local/share/applications/foss-radar.desktop`. It uses `xdg-open` so it works across GNOME, KDE, XFCE, and anything else that respects XDG — no browser hardcoded. Whether it opens a new tab or window is up to your browser's defaults.
+
+The app still needs to be running (`node dist/index.cjs` or the systemd service) for the launcher to do anything useful.
+
+To remove it:
+
+```bash
+bash script/remove-desktop-entry.sh
+```
+
+To change the name or URL, edit the variables at the top of `script/install-desktop-entry.sh`.
+
+---
+
 ## Updating
 
 ```bash
