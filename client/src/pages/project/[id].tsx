@@ -16,6 +16,7 @@ import {
   Clock
 } from "lucide-react";
 import type { Project } from "@shared/schema";
+import { getProjectHealth } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: Project['status'] }) {
   const cls = status === 'Want to Try' ? 'status-want' :
@@ -249,11 +250,24 @@ export default function ProjectDetail() {
                         </div>
                       ))}
                     </div>
-                    {project.githubLastCommit && (
-                      <p className="text-xs font-mono text-muted-foreground/60 mt-3">
-                        Last commit: {formatDate(project.githubLastCommit)}
-                      </p>
-                    )}
+                    {project.githubLastCommit && (() => {
+                      const health = getProjectHealth(project.githubLastCommit);
+                      const healthColorMap = {
+                        green: "bg-green-500",
+                        yellow: "bg-yellow-500",
+                        orange: "bg-orange-500",
+                        red: "bg-red-500",
+                        unknown: "bg-muted-foreground",
+                      };
+                      return (
+                        <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-secondary/20 rounded-md border border-white/5">
+                          <span className={`w-2.5 h-2.5 rounded-full shadow-sm ${healthColorMap[health.color]}`} />
+                          <p className="text-xs font-mono text-muted-foreground">
+                            {health.text} ({formatDate(project.githubLastCommit)})
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               )}

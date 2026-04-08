@@ -25,7 +25,19 @@ function formatNumber(n: number) {
   return String(n);
 }
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getProjectHealth } from "@/lib/utils";
+
 export function ProjectCard({ project }: ProjectCardProps) {
+  const health = getProjectHealth(project.githubLastCommit);
+  const healthColorMap = {
+    green: "bg-green-500",
+    yellow: "bg-yellow-500",
+    orange: "bg-orange-500",
+    red: "bg-red-500",
+    unknown: "bg-muted-foreground",
+  };
+
   return (
     <Card className="glass-panel group hover:border-primary/50 transition-all duration-300 relative overflow-hidden cursor-pointer h-full flex flex-col"
       data-testid={`card-project-${project.id}`}>
@@ -46,10 +58,21 @@ export function ProjectCard({ project }: ProjectCardProps) {
           )}
         </div>
 
-        <CardTitle className="text-lg font-bold font-heading text-foreground group-hover:text-primary transition-colors">
+        <CardTitle className="text-lg font-bold font-heading text-foreground group-hover:text-primary transition-colors flex items-center gap-2">
           <Link href={`/project/${project.id}`}>{project.name}</Link>
+          {project.githubLastCommit && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={`w-2 h-2 rounded-full ${healthColorMap[health.color]}`} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{health.text}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </CardTitle>
-
         <CardDescription className="text-muted-foreground text-sm leading-relaxed line-clamp-2">
           {project.description}
         </CardDescription>

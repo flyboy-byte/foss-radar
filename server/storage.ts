@@ -1,14 +1,14 @@
 import { db } from "./db";
 import { projects, discoverySearches } from "@shared/schema";
 import type { Project, InsertProject, UpdateProject, DiscoverySearch, InsertDiscoverySearch } from "@shared/schema";
-import { eq, ilike, or, arrayContains, inArray, desc } from "drizzle-orm";
+import { eq, like, or, inArray, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Projects
   getProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   createProject(data: InsertProject): Promise<Project>;
-  updateProject(id: string, data: UpdateProject): Promise<Project | undefined>;
+  updateProject(id: string, data: Partial<Project>): Promise<Project | undefined>;
   deleteProject(id: string): Promise<boolean>;
   searchProjects(query: string): Promise<Project[]>;
 
@@ -32,10 +32,10 @@ export class DatabaseStorage implements IStorage {
     return p;
   }
 
-  async updateProject(id: string, data: UpdateProject): Promise<Project | undefined> {
+  async updateProject(id: string, data: Partial<Project>): Promise<Project | undefined> {
     const [p] = await db
       .update(projects)
-      .set({ ...data, updatedAt: new Date() })
+      .set({ ...data, updatedAt: new Date().toISOString() })
       .where(eq(projects.id, id))
       .returning();
     return p;
@@ -52,8 +52,8 @@ export class DatabaseStorage implements IStorage {
       .from(projects)
       .where(
         or(
-          ilike(projects.name, `%${query}%`),
-          ilike(projects.description, `%${query}%`),
+          like(projects.name, `%${query}%`),
+          like(projects.description, `%${query}%`),
         )
       )
       .orderBy(desc(projects.updatedAt));

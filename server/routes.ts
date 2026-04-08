@@ -116,7 +116,7 @@ export async function registerRoutes(
         githubLicense: info.license ?? undefined,
         githubDescription: info.description ?? undefined,
         githubLastCommit: info.lastCommit ?? info.pushedAt ?? undefined,
-        lastMonitored: new Date() as any,
+        lastMonitored: new Date().toISOString(),
       });
 
       res.json({ project: updated, githubInfo: info });
@@ -144,7 +144,7 @@ export async function registerRoutes(
               githubLicense: info.license ?? undefined,
               githubDescription: info.description ?? undefined,
               githubLastCommit: info.lastCommit ?? info.pushedAt ?? undefined,
-              lastMonitored: new Date() as any,
+              lastMonitored: new Date().toISOString(),
             });
             results.push({ id: p.id, name: p.name, success: true });
           } else {

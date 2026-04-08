@@ -1,31 +1,22 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Enums
-export const categoryEnum = pgEnum("category", [
-  "Linux Apps", "Self-Hosted", "Android Apps", "Ham Radio", "Utilities", "Customization"
-]);
-
-export const statusEnum = pgEnum("status", [
-  "Want to Try", "Using", "Archived"
-]);
-
 // Projects table — the core of FOSS Radar
-export const projects = pgTable("projects", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
-  category: categoryEnum("category").notNull(),
-  status: statusEnum("status").notNull().default("Want to Try"),
+  category: text("category", { enum: ["Linux Apps", "Self-Hosted", "Android Apps", "Ham Radio", "Utilities", "Customization"] }).notNull(),
+  status: text("status", { enum: ["Want to Try", "Using", "Archived"] }).notNull().default("Want to Try"),
   url: text("url").notNull().default(""),
   githubUrl: text("github_url"),
-  tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+  tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
   rating: integer("rating"),                         // 1-5
   notes: text("notes"),                              // personal notes
-  setupNotes: text("setup_notes").array().notNull().default(sql`'{}'::text[]`),
-  alternatives: text("alternatives").array().notNull().default(sql`'{}'::text[]`), // IDs
+  setupNotes: text("setup_notes", { mode: "json" }).$type<string[]>().notNull().default([]),
+  alternatives: text("alternatives", { mode: "json" }).$type<string[]>().notNull().default([]), // IDs
   // GitHub monitoring fields
   githubStars: integer("github_stars"),
   githubForks: integer("github_forks"),
@@ -33,22 +24,29 @@ export const projects = pgTable("projects", {
   githubOpenIssues: integer("github_open_issues"),
   githubLicense: text("github_license"),
   githubDescription: text("github_description"),
-  lastMonitored: timestamp("last_monitored"),
-  isSeeded: boolean("is_seeded").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  lastMonitored: text("last_monitored"), // sqlite uses text for ISO timestamps
+  isSeeded: integer("is_seeded", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Discovery search parameters table
-export const discoverySearches = pgTable("discovery_searches", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const discoverySearches = sqliteTable("discovery_searches", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   query: text("query").notNull(),
   category: text("category"),
-  tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+  tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
   minStars: integer("min_stars"),
   language: text("language"),
   results: text("results"),    // JSON string of discovered project data
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Keep User type for storage interface compat
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
 });
 
 // Schemas for insert
@@ -79,12 +77,6 @@ export type Project = typeof projects.$inferSelect;
 export type InsertDiscoverySearch = z.infer<typeof insertDiscoverySearchSchema>;
 export type DiscoverySearch = typeof discoverySearches.$inferSelect;
 
-// Keep User type for storage interface compat
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-});
 export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
