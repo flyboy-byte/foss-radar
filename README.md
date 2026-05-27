@@ -15,6 +15,19 @@ FOSS Radar is a local-first single-user app for people who keep long mental list
 - Export the full library as JSON from `/api/export`
 - Seed a starter library on first launch so the app is immediately usable
 
+## Starter Library
+
+A fresh database currently seeds with 8 starter projects:
+
+- Jellyfin
+- Termux
+- KDE Plasma
+- Hyprland
+- Syncthing
+- Nextcloud
+- KDE Connect
+- Kodi
+
 ## Product Shape
 
 The app is opinionated in a useful way:
