@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Search, LayoutGrid, List, RefreshCw, Download, Star, Activity, Archive, Radar, Plus } from "lucide-react";
+import { Search, LayoutGrid, List, RefreshCw, Download, Star, Activity, Archive, Radar, Plus, TriangleAlert, Eye } from "lucide-react";
 import { Link } from "wouter";
 import type { Project } from "@shared/schema";
 
@@ -112,12 +112,14 @@ export default function Dashboard() {
 
           {/* Stats Row */}
           {stats && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               {[
                 { label: "Total Projects", value: stats.total, icon: Radar, color: "text-primary" },
                 { label: "Currently Using", value: stats.using, icon: Activity, color: "text-green-400" },
                 { label: "Want to Try", value: stats.wantToTry, icon: Star, color: "text-orange-400" },
                 { label: "Archived", value: stats.archived, icon: Archive, color: "text-muted-foreground" },
+                { label: "Need First Sync", value: stats.neverMonitored, icon: Eye, color: "text-cyan-400" },
+                { label: "Stale Repos", value: stats.staleRepos, icon: TriangleAlert, color: "text-red-400" },
               ].map(item => (
                 <div key={item.label} className="glass-panel rounded-lg p-4 border-white/5">
                   <div className="flex items-center justify-between mb-2">

@@ -1,7 +1,12 @@
 {
-  "name": "rest-express",
+  "name": "foss-radar",
   "version": "1.0.0",
   "type": "module",
+  "description": "Local-first dashboard for discovering and tracking open-source software.",
+  "engines": {
+    "node": ">=20 <25",
+    "npm": ">=10"
+  },
   "license": "MIT",
   "scripts": {
     "dev:client": "vite dev --port 5000",

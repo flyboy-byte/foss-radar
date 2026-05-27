@@ -1,274 +1,247 @@
-# 📡 FOSS Radar
+# FOSS Radar
 
-**A personal dashboard for discovering, tracking, and monitoring open-source software.**
+Personal dashboard for discovering, tracking, and monitoring open-source software.
 
-No accounts, no cloud, no tracking. Runs as a local service on your Linux machine. Built for tinkerers, Linux hobbyists, ham radio operators, and anyone who likes keeping a list of cool FOSS tools.
+FOSS Radar is a local-first single-user app for people who keep long mental lists of tools they want to try, projects they already use, and repositories they want to keep an eye on. It runs as one Node process, stores data in a local SQLite file, and optionally talks to the public GitHub API for discovery and live repo stats.
 
----
+![FOSS Radar dashboard](docs/screenshot.png)
 
-## Screenshot
+## What It Does
 
-![FOSS Radar Dashboard](docs/screenshot.png)
+- Track projects in a personal library with categories, status, tags, notes, setup notes, and ratings
+- Discover new projects from GitHub by keyword, language, topic, and minimum stars
+- Import discovered repos directly into the local library
+- Sync GitHub metadata for tracked repos: stars, forks, open issues, license, description, and last commit date
+- Export the full library as JSON from `/api/export`
+- Seed a starter library on first launch so the app is immediately usable
 
----
+## Product Shape
 
-## Features
+The app is opinionated in a useful way:
 
-- Track projects with status tags: `Using` · `Want to Try` · `Archived`
-- Live GitHub stats — stars, forks, open issues, license, last commit
-- Discovery engine — search GitHub by keyword, language, topic, and star count
-- One-click import from search results into your library
-- Star ratings, personal notes, setup tips per project
-- Categories: Linux Apps · Self-Hosted · Android Apps · Ham Radio · Utilities · Customization
-- JSON export anytime via `/api/export`
-
----
+- `local-first`: no accounts, no cloud sync, no auth flow
+- `single-user`: one local database file, one user profile implied by the install
+- `single-process`: API and frontend are served together
+- `GitHub-aware`: discovery and health signals come from public repository data
+- `Linux-friendly`: includes scripts for a desktop launcher and systemd-style deployment
 
 ## Tech Stack
 
-| | |
-|---|---|
-| Frontend | React + TypeScript + Tailwind CSS + shadcn/ui |
-| Backend | Express.js + TypeScript |
-| Database | PostgreSQL (via Drizzle ORM) |
-| GitHub API | Public REST API — optional token for higher rate limits |
+| Layer | Implementation |
+| --- | --- |
+| Frontend | React 19 + TypeScript + Vite + Wouter |
+| Data fetching | TanStack Query |
+| UI | Tailwind CSS v4 + shadcn/ui + Lucide icons |
+| Backend | Express 5 + TypeScript |
+| Database | SQLite via `better-sqlite3` + Drizzle ORM |
+| External API | GitHub REST API |
 
----
+## Runtime Architecture
 
-## Running Locally on Linux
+```text
+client/
+  src/
+    pages/
+      dashboard/        Main library view, filters, stats, batch GitHub sync
+      project/[id].tsx  Project detail, notes, rating, manual GitHub sync
+      discover/         GitHub search and import flow
+      add/              Manual project creation
+    lib/api.ts          Client-side API wrapper
 
-FOSS Radar is a Node.js + PostgreSQL app. It serves both the API and the built frontend from a single process on port 5000.
+server/
+  index.ts              Express entry point, .env loading, seed trigger
+  routes.ts             All /api routes
+  storage.ts            Drizzle-backed persistence layer
+  github.ts             GitHub repo fetch + search helpers
+  db.ts                 SQLite connection
+  seed.ts               First-run seed data
 
-All frontend API calls are same-origin — no CORS configuration needed.
-
-### 1. Install Node.js (v20+)
-
-```bash
-# Arch
-sudo pacman -S nodejs npm
-
-# Debian/Ubuntu
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Fedora
-sudo dnf install nodejs
+shared/
+  schema.ts             Drizzle schema and Zod request schemas
 ```
 
-### 2. Install PostgreSQL
+The database file is `fossradar.db` in the project root. On first boot the server seeds the library if the `projects` table is empty.
 
-```bash
-# Arch
-sudo pacman -S postgresql
-sudo -u postgres initdb -D /var/lib/postgres/data
-sudo systemctl enable --now postgresql
+## UI Direction
 
-# Debian/Ubuntu
-sudo apt install -y postgresql
-sudo systemctl enable --now postgresql
+The current product style is deliberate and consistent:
 
-# Fedora
-sudo dnf install postgresql-server
-sudo postgresql-setup --initdb
-sudo systemctl enable --now postgresql
-```
+- dark, terminal-adjacent interface
+- green primary accent with muted blue-gray surfaces
+- monospaced metadata layered over bold heading typography
+- "radar" / "signals" / "sync" language instead of generic CRUD copy
+- local tool for tinkerers, not a SaaS dashboard
 
-Create the database:
+If you extend the UI, keep that direction intact. A bright generic admin theme would be a regression.
 
-```bash
-sudo -u postgres psql << 'EOF'
-CREATE USER fossradar WITH PASSWORD 'changeme';
-CREATE DATABASE fossradar OWNER fossradar;
-GRANT ALL PRIVILEGES ON DATABASE fossradar TO fossradar;
-EOF
-```
+## Project Statuses
 
-### 3. Clone and Install
+- `Want to Try`
+- `Using`
+- `Archived`
 
-```bash
-git clone https://github.com/flyboy-byte/foss-radar.git
-cd foss-radar
-npm install
-```
+## Default Categories
 
-### 4. Configure Environment
+- `Linux Apps`
+- `Self-Hosted`
+- `Android Apps`
+- `Ham Radio`
+- `Utilities`
+- `Customization`
+
+## Environment
+
+Copy the example file:
 
 ```bash
 cp .env.example .env
-nano .env
 ```
 
-Minimum required in `.env`:
+Available variables:
 
 ```env
-DATABASE_URL=postgresql://fossradar:changeme@localhost:5432/fossradar
-NODE_ENV=production
+# Optional, but strongly recommended for discovery and sync-heavy usage
+GITHUB_TOKEN=
+
+# HTTP port for the combined API + frontend server
 PORT=5000
+
+# Optional app URL used by helper scripts
+APP_URL=http://127.0.0.1:5000
+
+# Optional data directory for fossradar.db (defaults to repo root)
+DATA_DIR=
+
+# production for built runs, development for tsx/Vite dev
+NODE_ENV=production
 ```
 
-Optionally add a GitHub token for higher API rate limits (see below).
+`GITHUB_TOKEN` is optional. Without it, GitHub's unauthenticated rate limit is much lower.
 
-### 5. Build and Start
+## Local Development
+
+Requirements:
+
+- Node.js 20+
+- npm
+
+Install dependencies:
 
 ```bash
-npm run db:push   # creates database tables
-npm run build     # compiles frontend + bundles server
-node dist/index.cjs
+npm install
 ```
 
-Open `http://localhost:5000` in your browser. The app seeds your library with starter projects on first launch.
-
----
-
-## Running as a systemd Service
-
-Run on boot, restart on crash.
+Quick bootstrap (Linux):
 
 ```bash
-sudo nano /etc/systemd/system/foss-radar.service
+bash script/bootstrap-linux.sh
 ```
 
-```ini
-[Unit]
-Description=FOSS Radar
-After=network.target postgresql.service
-
-[Service]
-Type=simple
-User=YOUR_USERNAME
-WorkingDirectory=/home/YOUR_USERNAME/foss-radar
-ExecStart=/usr/bin/node /home/YOUR_USERNAME/foss-radar/dist/index.cjs
-Restart=on-failure
-RestartSec=5
-Environment=NODE_ENV=production
-EnvironmentFile=/home/YOUR_USERNAME/foss-radar/.env
-
-[Install]
-WantedBy=multi-user.target
-```
+Create the SQLite tables:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now foss-radar
-sudo systemctl status foss-radar
+npm run db:push
 ```
 
-View logs:
+Start development mode:
 
 ```bash
-journalctl -u foss-radar -f
+npm run dev
 ```
 
----
+The dev server runs the Express app on port `5000` and mounts Vite in middleware mode. Open `http://localhost:5000`.
 
-## Firewall Notes
+## Production Build
 
-The app listens on port 5000 on all interfaces (`0.0.0.0`). For a laptop/desktop this is usually fine since there's no incoming traffic by default. If you're running a firewall:
+Build the client and bundled server:
 
-**ufw (Ubuntu/Debian):**
 ```bash
-sudo ufw allow from 192.168.1.0/24 to any port 5000   # LAN only
-# or just: sudo ufw allow 5000  (all interfaces)
+npm run build
 ```
 
-**firewalld (Fedora/Arch with firewalld):**
+Start the production server:
+
 ```bash
-sudo firewall-cmd --add-port=5000/tcp --permanent
-sudo firewall-cmd --reload
+npm start
 ```
 
-**nftables / iptables (manual):**
+Important: run the built app from the repository root so the SQLite database path resolves to `./fossradar.db` and static assets resolve from `dist/public`.
+
+## Useful Commands
+
 ```bash
-sudo iptables -A INPUT -p tcp --dport 5000 -j ACCEPT
+npm run dev       # Express + Vite development server
+npm run check     # TypeScript typecheck
+npm run db:push   # Apply schema changes to the SQLite database
+npm run build     # Build frontend and bundled backend into dist/
+npm start         # Run the production build
+bash script/bootstrap-linux.sh           # Linux setup helper
+bash script/install-user-service.sh      # systemd user service install
+sudo bash script/install-system-service.sh <linux-user>  # systemd system service install
 ```
 
-If you only need it on your local machine (not other devices on your network), no firewall changes are needed — just open `http://localhost:5000`.
+## API Overview
 
----
+Project library:
+
+- `GET /api/projects`
+- `GET /api/projects/:id`
+- `POST /api/projects`
+- `PATCH /api/projects/:id`
+- `DELETE /api/projects/:id`
+
+GitHub monitoring:
+
+- `POST /api/projects/:id/monitor`
+- `POST /api/monitor/all`
+
+Discovery:
+
+- `GET /api/discover`
+- `GET /api/discover/history`
+- `POST /api/discover/import`
+
+Stats and export:
+
+- `GET /api/stats`
+- `GET /api/export`
 
 ## Linux Desktop Launcher
 
-Adds FOSS Radar to your app menu so you can launch it without opening a terminal.
+Install a launcher into `~/.local/share/applications`:
 
 ```bash
 bash script/install-desktop-entry.sh
+# or override URL:
+bash script/install-desktop-entry.sh http://127.0.0.1:5000
 ```
 
-This creates `~/.local/share/applications/foss-radar.desktop`. It uses `xdg-open` so it works across GNOME, KDE, XFCE, and anything else that respects XDG — no browser hardcoded. Whether it opens a new tab or window is up to your browser's defaults.
-
-The app still needs to be running (`node dist/index.cjs` or the systemd service) for the launcher to do anything useful.
-
-To remove it:
+Remove it:
 
 ```bash
 bash script/remove-desktop-entry.sh
 ```
 
-To change the name or URL, edit the variables at the top of `script/install-desktop-entry.sh`.
+The launcher opens `http://127.0.0.1:5000` via `xdg-open`. The app still needs to be running.
 
----
+## Deployment Notes
 
-## Updating
+This project is best treated as a personal service running on one machine or inside a private LAN.
 
-Pull the latest changes and rebuild:
+- The server binds to `0.0.0.0`
+- There is no auth layer
+- Data is stored in a local SQLite file
+- GitHub sync happens on demand, not in a background job
+- Batch sync applies a small per-repo delay to reduce rate-limit pressure
 
-```bash
-cd foss-radar
-git pull
-npm install        # picks up any new or changed dependencies
-npm run build      # recompiles frontend + backend into dist/
-npm run db:push    # only needed if the database schema changed (check git log)
-sudo systemctl restart foss-radar
-```
+If you expose it beyond your own machine or trusted network, add an actual auth and access-control layer first.
 
-**What each step does:**
+## Known Repo Drift
 
-- `git pull` — fetches the latest commits from the repo
-- `npm install` — safe to always run; only installs anything that changed, skips everything else
-- `npm run build` — compiles the React frontend and bundles the Express backend into `dist/`; required after any code change
-- `npm run db:push` — applies schema changes to your local PostgreSQL database; only needed when `shared/schema.ts` changed; skipping it when not needed is fine
-- `systemctl restart` — picks up the new `dist/index.cjs`; the old process keeps running until you do this
+The codebase still contains a small amount of template residue from older iterations:
 
-**How to check it worked:**
+- some docs previously referred to PostgreSQL
+- `client/src/lib/data/projects.ts` is legacy mock data and is not used at runtime
+- `package.json` still has some unused dependencies from earlier scaffolding
 
-```bash
-sudo systemctl status foss-radar   # should show "active (running)"
-journalctl -u foss-radar -n 30     # last 30 log lines if something looks off
-```
-
-**If something breaks after an update:**
-
-```bash
-# Check what changed in this pull
-git log --oneline -10
-
-# Roll back to the previous working commit
-git checkout <commit-hash>
-npm run build
-sudo systemctl restart foss-radar
-```
-
-**Reinstalling from scratch** (if `node_modules` gets corrupted or you switch Node versions):
-
-```bash
-rm -rf node_modules
-npm install
-npm run build
-```
-
----
-
-## GitHub Token (Optional)
-
-Without a token the GitHub API allows 60 requests/hour — enough for occasional use. With a token it's 5,000/hour.
-
-1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
-2. Generate a new classic token — no scopes needed (public repos only)
-3. Add to `.env`: `GITHUB_TOKEN=ghp_...`
-4. Restart the server
-
----
-
-## License
-
-MIT
+The source of truth for the current app is the runtime code under `client/`, `server/`, and `shared/`.

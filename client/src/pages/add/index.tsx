@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createProject, CATEGORIES } from "@/lib/api";
+import { ApiError, createProject, CATEGORIES } from "@/lib/api";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,10 @@ export default function AddProject() {
       qc.invalidateQueries({ queryKey: ["stats"] });
       navigate(`/project/${p.id}`);
     },
-    onError: () => toast({ title: "Failed to add project", variant: "destructive" }),
+    onError: (err) => {
+      const message = err instanceof ApiError ? err.message : "Failed to add project";
+      toast({ title: message, variant: "destructive" });
+    },
   });
 
   const isValid = name.trim().length > 0 && url.trim().length > 0;

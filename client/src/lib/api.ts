@@ -1,6 +1,18 @@
 import { type Project, type InsertProject, type UpdateProject } from "@shared/schema";
 import { queryClient } from "./queryClient";
 
+export class ApiError extends Error {
+  status: number;
+  conflict?: Record<string, unknown>;
+
+  constructor(message: string, status: number, conflict?: Record<string, unknown>) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.conflict = conflict;
+  }
+}
+
 async function apiRequest<T>(
   path: string,
   options?: RequestInit
@@ -11,7 +23,7 @@ async function apiRequest<T>(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || `API error: ${res.status}`);
+    throw new ApiError(err.message || `API error: ${res.status}`, res.status, err.conflict);
   }
   return res.json();
 }
@@ -91,6 +103,9 @@ export const getStats = () =>
     withGitHub: number;
     monitored: number;
     totalStars: number;
+    neverMonitored: number;
+    staleRepos: number;
+    activeRepos: number;
   }>("/stats");
 
 export const CATEGORIES = [

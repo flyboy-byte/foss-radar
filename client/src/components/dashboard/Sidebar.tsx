@@ -62,6 +62,18 @@ export function Sidebar() {
             ))}
           </div>
         )}
+        {stats && (
+          <div className="rounded-md border border-white/5 bg-secondary/20 p-2.5 space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground/70">
+              <span>Need first sync</span>
+              <span className="text-cyan-400">{stats.neverMonitored}</span>
+            </div>
+            <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground/70">
+              <span>Stale repos</span>
+              <span className="text-red-400">{stats.staleRepos}</span>
+            </div>
+          </div>
+        )}
 
         <a href="/api/export" download className="flex items-center gap-2 px-3 py-1.5 rounded-md text-muted-foreground/60 hover:text-muted-foreground hover:bg-secondary/30 transition-colors text-xs font-mono">
           <Download className="w-3.5 h-3.5" />

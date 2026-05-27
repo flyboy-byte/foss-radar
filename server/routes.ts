@@ -1,12 +1,55 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
+import type { Server } from "http";
 import { storage } from "./storage";
-import { db } from "./db";
-import { projects } from "@shared/schema";
-import { eq } from "drizzle-orm";
-import { insertProjectSchema, updateProjectSchema, insertDiscoverySearchSchema } from "@shared/schema";
-import { fetchRepoInfo, searchGitHub } from "./github";
+import { insertProjectSchema, updateProjectSchema } from "@shared/schema";
+import { fetchRepoInfo, parseGitHubRepo, searchGitHub } from "./github";
 import { z } from "zod";
+import type { Project } from "@shared/schema";
+
+function normalizeTextValue(value: string | null | undefined) {
+  if (!value) return null;
+  return value.trim().toLowerCase();
+}
+
+function normalizeGitHubUrl(url: string | null | undefined) {
+  if (!url) return null;
+  const parsed = parseGitHubRepo(url);
+  if (!parsed) return null;
+  return `https://github.com/${parsed.owner.toLowerCase()}/${parsed.repo.toLowerCase()}`;
+}
+
+function classifyMonitoringState(project: Project) {
+  if (!project.githubUrl) return "none";
+  if (!project.lastMonitored) return "never";
+  if (!project.githubLastCommit) return "unknown";
+  const commitTs = new Date(project.githubLastCommit).getTime();
+  if (Number.isNaN(commitTs)) return "unknown";
+  const ageDays = Math.floor((Date.now() - commitTs) / 86_400_000);
+  if (ageDays <= 30) return "active";
+  if (ageDays > 365) return "stale";
+  return "slow";
+}
+
+async function findDuplicateProject(
+  candidate: { idToIgnore?: string; name?: string; url?: string; githubUrl?: string },
+): Promise<Project | null> {
+  const all = await storage.getProjects();
+  const targetGitHub = normalizeGitHubUrl(candidate.githubUrl ?? candidate.url);
+  const targetUrl = normalizeTextValue(candidate.url);
+  const targetName = normalizeTextValue(candidate.name);
+
+  for (const project of all) {
+    if (candidate.idToIgnore && project.id === candidate.idToIgnore) continue;
+    const projectGitHub = normalizeGitHubUrl(project.githubUrl ?? project.url);
+    if (targetGitHub && projectGitHub === targetGitHub) return project;
+    if (!targetGitHub && targetUrl && targetName) {
+      const existingUrl = normalizeTextValue(project.url);
+      const existingName = normalizeTextValue(project.name);
+      if (existingUrl === targetUrl && existingName === targetName) return project;
+    }
+  }
+  return null;
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -64,7 +107,20 @@ export async function registerRoutes(
       if (!body.success) {
         return res.status(400).json({ message: "Invalid data", errors: body.error.errors });
       }
-      const p = await storage.createProject(body.data);
+      const normalizedGitHub = normalizeGitHubUrl(body.data.githubUrl ?? body.data.url) ?? body.data.githubUrl ?? undefined;
+      const duplicate = await findDuplicateProject({
+        name: body.data.name,
+        url: body.data.url,
+        githubUrl: normalizedGitHub,
+      });
+      if (duplicate) {
+        return res.status(409).json({
+          message: `Project "${duplicate.name}" already exists in your library`,
+          conflict: { id: duplicate.id, name: duplicate.name, githubUrl: duplicate.githubUrl, url: duplicate.url },
+        });
+      }
+
+      const p = await storage.createProject({ ...body.data, githubUrl: normalizedGitHub });
       res.status(201).json(p);
     } catch {
       res.status(500).json({ message: "Failed to create project" });
@@ -78,7 +134,29 @@ export async function registerRoutes(
       if (!body.success) {
         return res.status(400).json({ message: "Invalid data", errors: body.error.errors });
       }
-      const p = await storage.updateProject(req.params.id, body.data);
+      const existing = await storage.getProject(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Project not found" });
+
+      const nextUrl = body.data.url ?? existing.url;
+      const nextGitHub = body.data.githubUrl ?? existing.githubUrl ?? undefined;
+      const duplicate = await findDuplicateProject({
+        idToIgnore: existing.id,
+        name: body.data.name ?? existing.name,
+        url: nextUrl,
+        githubUrl: nextGitHub,
+      });
+      if (duplicate) {
+        return res.status(409).json({
+          message: `Update would duplicate "${duplicate.name}"`,
+          conflict: { id: duplicate.id, name: duplicate.name, githubUrl: duplicate.githubUrl, url: duplicate.url },
+        });
+      }
+
+      const normalizedGitHub = normalizeGitHubUrl(nextGitHub ?? nextUrl) ?? (body.data.githubUrl ?? existing.githubUrl);
+      const p = await storage.updateProject(req.params.id, {
+        ...body.data,
+        githubUrl: normalizedGitHub ?? undefined,
+      });
       if (!p) return res.status(404).json({ message: "Project not found" });
       res.json(p);
     } catch {
@@ -243,6 +321,14 @@ export async function registerRoutes(
       }
 
       const { name, description, htmlUrl, stars, forks, language, license, topics, category } = body.data;
+      const normalizedGitHub = normalizeGitHubUrl(htmlUrl) ?? htmlUrl;
+      const duplicate = await findDuplicateProject({ name, url: htmlUrl, githubUrl: normalizedGitHub });
+      if (duplicate) {
+        return res.status(409).json({
+          message: `Project "${duplicate.name}" already exists in your library`,
+          conflict: { id: duplicate.id, name: duplicate.name, githubUrl: duplicate.githubUrl, url: duplicate.url },
+        });
+      }
 
       const tags = [
         ...(topics ?? []).slice(0, 5),
@@ -254,8 +340,8 @@ export async function registerRoutes(
         description: description ?? "",
         category,
         status: "Want to Try",
-        url: htmlUrl,
-        githubUrl: htmlUrl,
+        url: normalizedGitHub,
+        githubUrl: normalizedGitHub,
         tags,
         setupNotes: [],
         alternatives: [],
@@ -289,6 +375,9 @@ export async function registerRoutes(
         withGitHub: all.filter(p => p.githubUrl).length,
         monitored: all.filter(p => p.lastMonitored).length,
         totalStars: all.reduce((acc, p) => acc + (p.githubStars ?? 0), 0),
+        neverMonitored: 0,
+        staleRepos: 0,
+        activeRepos: 0,
       };
 
       for (const p of all) {
@@ -300,6 +389,12 @@ export async function registerRoutes(
         stats.avgRating = Math.round(
           rated.reduce((acc, p) => acc + (p.rating ?? 0), 0) / rated.length * 10
         ) / 10;
+      }
+      for (const p of all) {
+        const state = classifyMonitoringState(p);
+        if (state === "never") stats.neverMonitored += 1;
+        if (state === "stale") stats.staleRepos += 1;
+        if (state === "active") stats.activeRepos += 1;
       }
 
       res.json(stats);

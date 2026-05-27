@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { discoverProjects, importProject, CATEGORIES } from "@/lib/api";
+import { ApiError, discoverProjects, importProject, CATEGORIES } from "@/lib/api";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,7 +69,10 @@ export default function Discover() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
     },
-    onError: (err: any) => toast({ title: "Import failed", description: err.message, variant: "destructive" }),
+    onError: (err) => {
+      const message = err instanceof ApiError ? err.message : "Import failed";
+      toast({ title: "Import failed", description: message, variant: "destructive" });
+    },
   });
 
   const runSearch = (overrides?: any) => {

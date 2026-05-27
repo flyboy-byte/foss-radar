@@ -6,7 +6,7 @@
 
 APP_NAME="FOSS Radar"
 APP_ID="foss-radar"
-APP_URL="http://127.0.0.1:5000"
+APP_URL="${1:-${APP_URL:-http://127.0.0.1:5000}}"
 
 # ──────────────────────────────────────────────
 

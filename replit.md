@@ -1,72 +1,84 @@
 # FOSS Radar
 
-A personal hobby dashboard for discovering, tracking, and monitoring open-source software. Local-first, no login, fully self-contained.
+## Overview
 
-## Tech Stack
+FOSS Radar is a local-first dashboard for tracking and discovering open-source software. It is not a multi-user SaaS app. It behaves more like a personal utility: one local database, one operator, one combined frontend/backend server.
 
-- **Frontend**: React + TypeScript, Wouter routing, TanStack Query, Tailwind v4, shadcn/ui
-- **Backend**: Express.js + TypeScript (tsx)
-- **Database**: PostgreSQL (Replit built-in) via Drizzle ORM
-- **GitHub API**: Public REST API for live monitoring and discovery
+The current implementation uses SQLite, not PostgreSQL.
 
-## Architecture
+## Core Stack
 
-```
-client/src/
-  pages/
-    dashboard/index.tsx   — Main library view with stats + filtering
-    project/[id].tsx      — Project detail, editing, GitHub stats
-    discover/index.tsx    — GitHub search + import
-    add/index.tsx         — Manual project add form
-  components/
-    dashboard/
-      Sidebar.tsx         — Navigation + live stats sidebar
-      ProjectCard.tsx     — Project card component
-  lib/
-    api.ts                — All API calls to the backend
-    queryClient.ts        — TanStack Query client
+- Frontend: React 19, TypeScript, Vite, Wouter, TanStack Query
+- Styling: Tailwind CSS v4, shadcn/ui, Lucide
+- Backend: Express 5, TypeScript
+- Persistence: Drizzle ORM on top of `better-sqlite3`
+- External integration: GitHub REST API
 
-server/
-  index.ts               — Entry point + seed trigger
-  routes.ts              — All /api/* endpoints
-  storage.ts             — DatabaseStorage (Drizzle-backed CRUD)
-  db.ts                  — Drizzle + pg pool
-  github.ts              — GitHub API client (fetch repo info + search)
-  seed.ts                — Seeds 10 initial projects on first run
+## Actual Runtime Model
 
-shared/
-  schema.ts              — Drizzle schema: projects, discoverySearches
-```
+- `server/index.ts` loads `.env`, configures Express, seeds the DB on first boot, and serves the app
+- `server/routes.ts` defines the full HTTP API
+- `server/storage.ts` is the persistence boundary used by routes
+- `server/github.ts` handles GitHub repo lookup and repository search
+- `shared/schema.ts` defines both the Drizzle schema and the Zod-backed request shapes
+- `client/src/lib/api.ts` is the client-side API wrapper
+- `client/src/pages/*` contains the full user flow
 
-## Features
+The SQLite database file lives at `./fossradar.db`.
 
-- **Library**: Browse, filter, search all tracked FOSS projects by category/status/tag
-- **Detail View**: Personal notes, star rating, status management, setup notes
-- **GitHub Monitoring**: Sync live stars/forks/issues/license/last commit per project or all at once
-- **Discovery**: Search GitHub by keyword, language, min stars, topic tag — import directly
-- **Add manually**: Form to add any project to the radar
-- **Export**: Download full library as JSON at `/api/export`
-- **Stats Dashboard**: Overview counts, category breakdown, avg rating
+## Product Style
 
-## Project Categories
+The app has a strong existing visual and product voice:
 
-Linux Apps · Self-Hosted · Android Apps · Ham Radio · Utilities · Customization
+- dark "terminal chic" presentation
+- green accent, muted panels, scanline overlay
+- hacker-radio-radar vocabulary: signals, sync, discover, monitor
+- personal knowledge base for software, not a team workflow tool
 
-## Project Status Options
+That style matters. Product changes should preserve the feeling that this is a private operator console for open-source exploration.
 
-- **Want to Try** — on the queue
-- **Using** — actively using
-- **Archived** — used before, no longer active
+## Main User Flows
 
-## Environment Variables
+1. Browse and filter tracked projects on the dashboard
+2. Open a project detail page and edit notes, status, rating, and setup notes
+3. Sync GitHub metadata for one project or all GitHub-backed projects
+4. Search GitHub for new software and import results into the library
+5. Export the full library as JSON
 
-- `DATABASE_URL` — PostgreSQL connection string (auto-set by Replit)
-- `GITHUB_TOKEN` (optional) — Raises GitHub API rate limit from 60 to 5000 req/hr
-
-## Dev
+## Current Commands
 
 ```bash
-npm run dev       # Start Express + Vite
-npm run db:push   # Sync schema changes to DB
-npm run build     # Build for production
+npm run dev
+npm run check
+npm run db:push
+npm run build
+npm start
+bash script/bootstrap-linux.sh
+bash script/install-user-service.sh
+sudo bash script/install-system-service.sh <linux-user>
 ```
+
+## Operational Notes
+
+- No auth is implemented
+- The app binds to `0.0.0.0`
+- GitHub API usage is optional but much better with `GITHUB_TOKEN`
+- The server and frontend are served from the same process
+- Production runs depend on being started from the repo root so relative paths resolve correctly
+- Node runtime policy: `>=20` and `<25`
+- Optional `DATA_DIR` controls SQLite file location
+
+## Important Repo Truths
+
+- Old docs referenced PostgreSQL; that is no longer accurate
+- `client/src/lib/data/projects.ts` is legacy mock data and is unused
+- Some dependencies in `package.json` are leftover scaffolding and not part of the current runtime
+- `npm run check` currently passes
+
+## Near-Term Improvement Targets
+
+- remove unused dependencies and template residue
+- add tests around routes and storage behavior
+- surface discovery history in the UI or remove the unused API path
+- add duplicate protection when importing or manually adding projects
+- improve project-detail editing for tags and alternatives

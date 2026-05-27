@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getProject, updateProject, deleteProject, monitorProject, CATEGORIES } from "@/lib/api";
+import { ApiError, getProject, getProjects, updateProject, deleteProject, monitorProject } from "@/lib/api";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,12 +45,12 @@ function formatNumber(n: number | null | undefined) {
 function AlternativesList({ ids }: { ids: string[] }) {
   const { data: allProjects } = useQuery({
     queryKey: ["projects"],
-    queryFn: () => fetch("/api/projects").then(r => r.json()),
+    queryFn: () => getProjects(),
   });
   if (!allProjects) return null;
   const matched = ids
     .map((id: string) => allProjects.find((p: { id: string; name: string }) => p.id === id))
-    .filter(Boolean);
+    .filter((p): p is Project => p !== undefined);
   if (matched.length === 0) return (
     <div className="p-4 text-center">
       <p className="text-muted-foreground font-mono text-xs italic">No alternatives tracked.</p>
@@ -58,7 +58,7 @@ function AlternativesList({ ids }: { ids: string[] }) {
   );
   return (
     <div className="divide-y divide-white/5">
-      {matched.map((p: { id: string; name: string }) => (
+      {matched.map((p) => (
         <Link key={p.id} href={`/project/${p.id}`}>
           <div className="p-4 hover:bg-secondary/30 cursor-pointer transition-colors">
             <div className="font-mono text-xs text-primary">{p.name}</div>
@@ -84,6 +84,8 @@ export default function ProjectDetail() {
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [rating, setRating] = useState<number | undefined>(undefined);
   const [setupNoteInput, setSetupNoteInput] = useState("");
+  const [tagInput, setTagInput] = useState("");
+  const [alternativeId, setAlternativeId] = useState("");
 
   const displayNotes = notes !== undefined ? notes : (project?.notes ?? "");
   const displayStatus = status !== undefined ? status : (project?.status ?? "");
@@ -97,7 +99,10 @@ export default function ProjectDetail() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
     },
-    onError: () => toast({ title: "Update failed", variant: "destructive" }),
+    onError: (err) => {
+      const message = err instanceof ApiError ? err.message : "Update failed";
+      toast({ title: message, variant: "destructive" });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -132,6 +137,35 @@ export default function ProjectDetail() {
     updateMutation.mutate({ setupNotes: newNotes });
     setSetupNoteInput("");
   };
+
+  const addTag = () => {
+    if (!project || !tagInput.trim()) return;
+    const normalized = tagInput.trim().toLowerCase();
+    if (project.tags.includes(normalized)) return;
+    updateMutation.mutate({ tags: [...project.tags, normalized] });
+    setTagInput("");
+  };
+
+  const removeTag = (tag: string) => {
+    if (!project) return;
+    updateMutation.mutate({ tags: project.tags.filter((t) => t !== tag) });
+  };
+
+  const addAlternative = () => {
+    if (!project || !alternativeId || project.alternatives.includes(alternativeId) || alternativeId === project.id) return;
+    updateMutation.mutate({ alternatives: [...project.alternatives, alternativeId] });
+    setAlternativeId("");
+  };
+
+  const removeAlternative = (id: string) => {
+    if (!project) return;
+    updateMutation.mutate({ alternatives: project.alternatives.filter((alt) => alt !== id) });
+  };
+
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => getProjects(),
+  });
 
   if (isLoading) {
     return (
@@ -389,13 +423,32 @@ export default function ProjectDetail() {
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {project.tags.map(tag => (
-                      <Badge key={tag} variant="secondary" className="bg-secondary/50 border-white/5 font-mono text-xs">
-                        #{tag}
+                      <Badge key={tag} variant="secondary" className="bg-secondary/50 border-white/5 font-mono text-xs flex items-center gap-2 pr-1">
+                        <span>#{tag}</span>
+                        <button
+                          className="text-muted-foreground/70 hover:text-foreground text-[10px]"
+                          onClick={() => removeTag(tag)}
+                          aria-label={`Remove ${tag}`}
+                        >
+                          x
+                        </button>
                       </Badge>
                     ))}
                     {project.tags.length === 0 && (
                       <p className="text-xs font-mono text-muted-foreground/50 italic">No tags</p>
                     )}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      className="flex-1 bg-secondary/20 border border-white/5 rounded-md px-3 py-1.5 text-xs font-mono placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      placeholder="Add tag"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") addTag(); }}
+                    />
+                    <Button size="sm" variant="outline" className="border-white/10 hover:bg-secondary/50" onClick={addTag}>
+                      Add
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -408,8 +461,43 @@ export default function ProjectDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
+                  <div className="p-4 border-b border-white/5 flex gap-2">
+                    <Select value={alternativeId} onValueChange={setAlternativeId}>
+                      <SelectTrigger className="bg-secondary/20 border-white/5 font-mono text-xs h-8">
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-white/10">
+                        {allProjects
+                          .filter((p) => p.id !== project.id && !project.alternatives.includes(p.id))
+                          .map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-white/10 hover:bg-secondary/50 h-8"
+                      onClick={addAlternative}
+                    >
+                      Add
+                    </Button>
+                  </div>
                   {project.alternatives && project.alternatives.length > 0 ? (
-                    <AlternativesList ids={project.alternatives} />
+                    <>
+                      <AlternativesList ids={project.alternatives} />
+                      <div className="p-3 border-t border-white/5 flex flex-wrap gap-2">
+                        {project.alternatives.map((id) => (
+                          <button
+                            key={id}
+                            className="text-[10px] font-mono text-muted-foreground hover:text-foreground border border-white/10 rounded px-2 py-1"
+                            onClick={() => removeAlternative(id)}
+                          >
+                            Remove
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   ) : (
                     <div className="p-4 text-center">
                       <p className="text-muted-foreground font-mono text-xs italic">No alternatives tracked.</p>
