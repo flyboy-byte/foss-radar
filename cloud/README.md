@@ -42,8 +42,12 @@ no `database is locked` errors (SQLite WAL mode + `busy_timeout` handle the rest
 npm run check:cloud   # from repo root — scoped to cloud/client only
 ```
 
-## What's not here yet
+## Deployment status
 
-Actual VPS deployment (nginx server block, systemd unit, TLS, choosing a real port/path on
-the box) is intentionally not built — the target VPS isn't fresh and needs a recon pass
-first. See the plan for what that recon should cover before wiring up real deployment.
+Currently mid-deployment to its production host. The Flask service is built, installed,
+and running under systemd with `gunicorn --preload` (see above for why `--preload`
+matters). Final step — wiring up the reverse proxy and TLS in front of it — is blocked
+pending a manual configuration step outside this repo's scope.
+
+Deployment specifics (host details, ports, service names) are intentionally not recorded
+in this public repo — see local operator notes for the exact resume steps.
