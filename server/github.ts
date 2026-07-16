@@ -109,6 +109,41 @@ export async function fetchRepoInfo(githubUrl: string): Promise<GitHubRepoInfo |
   }
 }
 
+export interface GitHubRelease {
+  tagName: string;
+  name: string | null;
+  htmlUrl: string;
+  publishedAt: string | null;
+}
+
+/**
+ * Fetch the latest published release for a repository, if any.
+ * Most repos don't use GitHub Releases, so a 404 here is expected and not an error.
+ */
+export async function fetchLatestRelease(githubUrl: string): Promise<GitHubRelease | null> {
+  const parsed = parseGitHubRepo(githubUrl);
+  if (!parsed) return null;
+
+  try {
+    const res = await fetch(
+      `${GITHUB_API}/repos/${parsed.owner}/${parsed.repo}/releases/latest`,
+      { headers: getHeaders() }
+    );
+    if (!res.ok) return null; // 404 = no releases published, nothing to report
+
+    const data = await res.json() as any;
+    return {
+      tagName: data.tag_name,
+      name: data.name ?? null,
+      htmlUrl: data.html_url,
+      publishedAt: data.published_at ?? null,
+    };
+  } catch (err) {
+    console.error(`Failed to fetch latest release for ${githubUrl}:`, err);
+    return null;
+  }
+}
+
 /**
  * Search GitHub for open-source projects matching the given parameters.
  */

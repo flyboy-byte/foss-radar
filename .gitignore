@@ -12,6 +12,11 @@ vite.config.ts.*
 
 # Local SQLite database — contains personal data, not for git
 fossradar.db
+foss-radar-cloud.db
+foss-radar-cloud.db-*
 
 # Migration artifacts
 export.json
+
+# Python virtualenv (cloud/server)
+venv/

@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { projects, discoverySearches } from "@shared/schema";
-import type { Project, InsertProject, UpdateProject, DiscoverySearch, InsertDiscoverySearch } from "@shared/schema";
+import { projects, discoverySearches, projectEvents } from "@shared/schema";
+import type { Project, InsertProject, UpdateProject, DiscoverySearch, InsertDiscoverySearch, ProjectEvent, ProjectEventType } from "@shared/schema";
 import { eq, like, or, inArray, desc } from "drizzle-orm";
 
 export interface IStorage {
@@ -15,6 +15,10 @@ export interface IStorage {
   // Discovery
   getDiscoverySearches(): Promise<DiscoverySearch[]>;
   createDiscoverySearch(data: InsertDiscoverySearch, results: string): Promise<DiscoverySearch>;
+
+  // Signal feed
+  createEvent(projectId: string, projectName: string, type: ProjectEventType, message: string): Promise<ProjectEvent>;
+  getRecentEvents(limit: number): Promise<ProjectEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -42,6 +46,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: string): Promise<boolean> {
+    await db.delete(projectEvents).where(eq(projectEvents.projectId, id));
     const result = await db.delete(projects).where(eq(projects.id, id)).returning();
     return result.length > 0;
   }
@@ -66,6 +71,15 @@ export class DatabaseStorage implements IStorage {
   async createDiscoverySearch(data: InsertDiscoverySearch, results: string): Promise<DiscoverySearch> {
     const [s] = await db.insert(discoverySearches).values({ ...data, results }).returning();
     return s;
+  }
+
+  async createEvent(projectId: string, projectName: string, type: ProjectEventType, message: string): Promise<ProjectEvent> {
+    const [e] = await db.insert(projectEvents).values({ projectId, projectName, type, message }).returning();
+    return e;
+  }
+
+  async getRecentEvents(limit: number): Promise<ProjectEvent[]> {
+    return db.select().from(projectEvents).orderBy(desc(projectEvents.createdAt)).limit(limit);
   }
 }
 

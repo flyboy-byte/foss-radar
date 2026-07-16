@@ -24,6 +24,11 @@ export const projects = sqliteTable("projects", {
   githubOpenIssues: integer("github_open_issues"),
   githubLicense: text("github_license"),
   githubDescription: text("github_description"),
+  // snapshot of stats as of the previous sync, so the UI can show deltas ("+12 stars")
+  previousGithubStars: integer("previous_github_stars"),
+  previousGithubForks: integer("previous_github_forks"),
+  previousGithubOpenIssues: integer("previous_github_open_issues"),
+  githubLatestRelease: text("github_latest_release"), // last known release tag, to detect new releases
   lastMonitored: text("last_monitored"), // sqlite uses text for ISO timestamps
   isSeeded: integer("is_seeded", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -61,7 +66,25 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   githubOpenIssues: true,
   githubLicense: true,
   githubDescription: true,
+  previousGithubStars: true,
+  previousGithubForks: true,
+  previousGithubOpenIssues: true,
+  githubLatestRelease: true,
 });
+
+// Signal feed — one row per detected change during a sync (star jump, health-state
+// transition, new release), so the dashboard can show "what changed" not just current state.
+export const projectEvents = sqliteTable("project_events", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  projectId: text("project_id").notNull(),
+  projectName: text("project_name").notNull(),
+  type: text("type", { enum: ["star_jump", "health_change", "release"] }).notNull(),
+  message: text("message").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type ProjectEvent = typeof projectEvents.$inferSelect;
+export type ProjectEventType = ProjectEvent["type"];
 
 export const updateProjectSchema = insertProjectSchema.partial();
 

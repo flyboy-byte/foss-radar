@@ -2,9 +2,76 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import { insertProjectSchema, updateProjectSchema } from "@shared/schema";
-import { fetchRepoInfo, parseGitHubRepo, searchGitHub } from "./github";
+import { fetchRepoInfo, fetchLatestRelease, parseGitHubRepo, searchGitHub } from "./github";
 import { z } from "zod";
 import type { Project } from "@shared/schema";
+
+type HealthState = "unknown" | "active" | "slow" | "stale";
+
+function healthState(commitDate: string | null | undefined): HealthState {
+  if (!commitDate) return "unknown";
+  const commitTs = new Date(commitDate).getTime();
+  if (Number.isNaN(commitTs)) return "unknown";
+  const ageDays = Math.floor((Date.now() - commitTs) / 86_400_000);
+  if (ageDays <= 30) return "active";
+  if (ageDays > 365) return "stale";
+  return "slow";
+}
+
+/**
+ * Refresh GitHub stats for one project and record any detected changes
+ * (star jump, health-state transition, new release) as feed events.
+ * Shared by the single-project and batch monitor endpoints.
+ */
+async function syncProject(p: Project) {
+  const info = await fetchRepoInfo(p.githubUrl!);
+  if (!info) return null;
+
+  const wasMonitored = !!p.lastMonitored;
+  const latestRelease = await fetchLatestRelease(p.githubUrl!);
+
+  const events: Array<{ type: "star_jump" | "health_change" | "release"; message: string }> = [];
+
+  if (wasMonitored && p.githubStars != null) {
+    const diff = info.stars - p.githubStars;
+    if (diff !== 0) {
+      events.push({ type: "star_jump", message: `${diff > 0 ? "+" : ""}${diff} stars` });
+    }
+  }
+
+  if (wasMonitored) {
+    const before = healthState(p.githubLastCommit);
+    const after = healthState(info.lastCommit ?? info.pushedAt);
+    if (before !== "unknown" && after !== "unknown" && before !== after) {
+      events.push({ type: "health_change", message: `Health changed: ${before} → ${after}` });
+    }
+  }
+
+  if (wasMonitored && latestRelease && p.githubLatestRelease && latestRelease.tagName !== p.githubLatestRelease) {
+    events.push({ type: "release", message: `Released ${latestRelease.tagName}` });
+  }
+
+  const updated = await storage.updateProject(p.id, {
+    previousGithubStars: wasMonitored ? p.githubStars ?? undefined : undefined,
+    previousGithubForks: wasMonitored ? p.githubForks ?? undefined : undefined,
+    previousGithubOpenIssues: wasMonitored ? p.githubOpenIssues ?? undefined : undefined,
+    githubStars: info.stars,
+    githubForks: info.forks,
+    githubOpenIssues: info.openIssues,
+    githubLicense: info.license ?? undefined,
+    githubDescription: info.description ?? undefined,
+    githubLastCommit: info.lastCommit ?? info.pushedAt ?? undefined,
+    githubLatestRelease: latestRelease?.tagName ?? undefined,
+    lastMonitored: new Date().toISOString(),
+  });
+  if (!updated) return null;
+
+  for (const e of events) {
+    await storage.createEvent(p.id, p.name, e.type, e.message);
+  }
+
+  return { project: updated, githubInfo: info };
+}
 
 function normalizeTextValue(value: string | null | undefined) {
   if (!value) return null;
@@ -184,20 +251,10 @@ export async function registerRoutes(
       if (!p) return res.status(404).json({ message: "Project not found" });
       if (!p.githubUrl) return res.status(400).json({ message: "No GitHub URL configured" });
 
-      const info = await fetchRepoInfo(p.githubUrl);
-      if (!info) return res.status(502).json({ message: "Could not fetch GitHub data" });
+      const result = await syncProject(p);
+      if (!result) return res.status(502).json({ message: "Could not fetch GitHub data" });
 
-      const updated = await storage.updateProject(req.params.id, {
-        githubStars: info.stars,
-        githubForks: info.forks,
-        githubOpenIssues: info.openIssues,
-        githubLicense: info.license ?? undefined,
-        githubDescription: info.description ?? undefined,
-        githubLastCommit: info.lastCommit ?? info.pushedAt ?? undefined,
-        lastMonitored: new Date().toISOString(),
-      });
-
-      res.json({ project: updated, githubInfo: info });
+      res.json(result);
     } catch {
       res.status(500).json({ message: "Monitoring failed" });
     }
@@ -213,17 +270,8 @@ export async function registerRoutes(
 
       for (const p of withGitHub) {
         try {
-          const info = await fetchRepoInfo(p.githubUrl!);
-          if (info) {
-            await storage.updateProject(p.id, {
-              githubStars: info.stars,
-              githubForks: info.forks,
-              githubOpenIssues: info.openIssues,
-              githubLicense: info.license ?? undefined,
-              githubDescription: info.description ?? undefined,
-              githubLastCommit: info.lastCommit ?? info.pushedAt ?? undefined,
-              lastMonitored: new Date().toISOString(),
-            });
+          const result = await syncProject(p);
+          if (result) {
             results.push({ id: p.id, name: p.name, success: true });
           } else {
             results.push({ id: p.id, name: p.name, success: false, error: "No data returned" });
@@ -238,6 +286,16 @@ export async function registerRoutes(
       res.json({ results, total: withGitHub.length });
     } catch {
       res.status(500).json({ message: "Batch monitoring failed" });
+    }
+  });
+
+  // GET /api/events — recent signal feed (star jumps, health changes, releases)
+  app.get("/api/events", async (_req, res) => {
+    try {
+      const events = await storage.getRecentEvents(50);
+      res.json(events);
+    } catch {
+      res.status(500).json({ message: "Failed to load events" });
     }
   });
 

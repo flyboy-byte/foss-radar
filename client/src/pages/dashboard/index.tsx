@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getProjects, getStats, monitorAll, CATEGORIES } from "@/lib/api";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { Sidebar } from "@/components/dashboard/Sidebar";
+import { SignalsFeed } from "@/components/dashboard/SignalsFeed";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -42,6 +43,7 @@ export default function Dashboard() {
       toast({ title: `Monitored ${success}/${data.total} projects`, description: "GitHub stats refreshed." });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
     },
     onError: () => {
       toast({ title: "Monitoring failed", variant: "destructive" });
@@ -131,6 +133,8 @@ export default function Dashboard() {
               ))}
             </div>
           )}
+
+          <SignalsFeed />
 
           {/* Filters + Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

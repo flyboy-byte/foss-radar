@@ -16,7 +16,7 @@ import {
   Clock
 } from "lucide-react";
 import type { Project } from "@shared/schema";
-import { getProjectHealth } from "@/lib/utils";
+import { getProjectHealth, getDelta } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: Project['status'] }) {
   const cls = status === 'Want to Try' ? 'status-want' :
@@ -119,6 +119,7 @@ export default function ProjectDetail() {
     onSuccess: ({ githubInfo }) => {
       toast({ title: "GitHub data refreshed", description: `${githubInfo.stars} stars, last push ${formatDate(githubInfo.pushedAt)}` });
       qc.invalidateQueries({ queryKey: ["project", params.id] });
+      qc.invalidateQueries({ queryKey: ["events"] });
     },
     onError: (err: any) => toast({ title: "Monitor failed", description: err.message, variant: "destructive" }),
   });
@@ -272,14 +273,21 @@ export default function ProjectDetail() {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                       {[
-                        { label: "Stars", value: formatNumber(project.githubStars), icon: Star },
-                        { label: "Forks", value: formatNumber(project.githubForks), icon: GitFork },
-                        { label: "Issues", value: formatNumber(project.githubOpenIssues), icon: AlertCircle },
-                        { label: "License", value: project.githubLicense ?? "—", icon: Tag },
+                        { label: "Stars", value: formatNumber(project.githubStars), icon: Star, delta: getDelta(project.githubStars, project.previousGithubStars) },
+                        { label: "Forks", value: formatNumber(project.githubForks), icon: GitFork, delta: getDelta(project.githubForks, project.previousGithubForks) },
+                        { label: "Issues", value: formatNumber(project.githubOpenIssues), icon: AlertCircle, delta: getDelta(project.githubOpenIssues, project.previousGithubOpenIssues) },
+                        { label: "License", value: project.githubLicense ?? "—", icon: Tag, delta: null },
                       ].map(item => (
                         <div key={item.label} className="bg-secondary/30 rounded-lg p-3 border border-white/5">
                           <item.icon className="w-4 h-4 text-primary/60 mx-auto mb-1" />
-                          <div className="text-lg font-heading font-bold">{item.value}</div>
+                          <div className="text-lg font-heading font-bold flex items-center justify-center gap-1.5">
+                            {item.value}
+                            {item.delta && (
+                              <span className={`text-xs font-mono ${item.delta.diff > 0 ? "text-green-400" : "text-red-400"}`}>
+                                {item.delta.text}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs font-mono text-muted-foreground">{item.label}</div>
                         </div>
                       ))}

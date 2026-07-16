@@ -1,0 +1,137 @@
+import { type Project, type InsertProject, type UpdateProject, type User } from "./types";
+import { queryClient } from "./queryClient";
+
+export class ApiError extends Error {
+  status: number;
+  conflict?: Record<string, unknown>;
+
+  constructor(message: string, status: number, conflict?: Record<string, unknown>) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.conflict = conflict;
+  }
+}
+
+async function apiRequest<T>(
+  path: string,
+  options?: RequestInit
+): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }));
+    throw new ApiError(err.message || `API error: ${res.status}`, res.status, err.conflict);
+  }
+  return res.json();
+}
+
+// Projects
+export const getProjects = (params?: {
+  q?: string;
+  category?: string;
+  status?: string;
+  tag?: string;
+}) => {
+  const search = new URLSearchParams();
+  if (params?.q) search.set("q", params.q);
+  if (params?.category && params.category !== "all") search.set("category", params.category);
+  if (params?.status && params.status !== "all") search.set("status", params.status);
+  if (params?.tag) search.set("tag", params.tag);
+  const qs = search.toString();
+  return apiRequest<Project[]>(`/projects${qs ? `?${qs}` : ""}`);
+};
+
+export const getProject = (id: string) =>
+  apiRequest<Project>(`/projects/${id}`);
+
+export const createProject = (data: InsertProject) =>
+  apiRequest<Project>("/projects", { method: "POST", body: JSON.stringify(data) });
+
+export const updateProject = (id: string, data: UpdateProject) =>
+  apiRequest<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+
+export const deleteProject = (id: string) =>
+  apiRequest<{ success: boolean }>(`/projects/${id}`, { method: "DELETE" });
+
+// Monitoring
+export const monitorProject = (id: string) =>
+  apiRequest<{ project: Project; githubInfo: any }>(`/projects/${id}/monitor`, { method: "POST" });
+
+export const monitorAll = () =>
+  apiRequest<{ results: any[]; total: number }>("/monitor/all", { method: "POST" });
+
+// Signal feed
+export interface ProjectEvent {
+  id: string;
+  projectId: string;
+  projectName: string;
+  type: "star_jump" | "health_change" | "release";
+  message: string;
+  createdAt: string;
+}
+
+export const getEvents = () => apiRequest<ProjectEvent[]>("/events");
+
+// Discovery
+export const discoverProjects = (params: {
+  query: string;
+  language?: string;
+  minStars?: number;
+  topic?: string;
+  sort?: string;
+}) => {
+  const search = new URLSearchParams({ query: params.query });
+  if (params.language) search.set("language", params.language);
+  if (params.minStars) search.set("minStars", String(params.minStars));
+  if (params.topic) search.set("topic", params.topic);
+  if (params.sort) search.set("sort", params.sort);
+  return apiRequest<{ results: any[]; count: number }>(`/discover?${search}`);
+};
+
+export const importProject = (data: {
+  name: string;
+  description?: string;
+  htmlUrl: string;
+  stars: number;
+  forks: number;
+  language?: string | null;
+  license?: string | null;
+  topics?: string[];
+  category: string;
+}) => apiRequest<Project>("/discover/import", { method: "POST", body: JSON.stringify(data) });
+
+// Stats & Export
+export const getStats = () =>
+  apiRequest<{
+    total: number;
+    using: number;
+    wantToTry: number;
+    archived: number;
+    categories: Record<string, number>;
+    avgRating: number;
+    withGitHub: number;
+    monitored: number;
+    totalStars: number;
+    neverMonitored: number;
+    staleRepos: number;
+    activeRepos: number;
+  }>("/stats");
+
+export const CATEGORIES = [
+  "Linux Apps", "Self-Hosted", "Android Apps", "Ham Radio", "Utilities", "Customization"
+] as const;
+
+// Auth
+export const register = (email: string, password: string) =>
+  apiRequest<User>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
+
+export const login = (email: string, password: string) =>
+  apiRequest<User>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+
+export const logout = () =>
+  apiRequest<{ success: boolean }>("/auth/logout", { method: "POST" });
+
+export const getMe = () => apiRequest<User>("/auth/me");

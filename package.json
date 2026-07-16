@@ -14,7 +14,10 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "dev:cloud:client": "vite dev --config cloud/vite.config.ts --port 5001",
+    "build:cloud:client": "vite build --config cloud/vite.config.ts",
+    "check:cloud": "tsc -p cloud/tsconfig.json"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

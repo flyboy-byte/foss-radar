@@ -63,6 +63,18 @@ export const monitorProject = (id: string) =>
 export const monitorAll = () =>
   apiRequest<{ results: any[]; total: number }>("/monitor/all", { method: "POST" });
 
+// Signal feed
+export interface ProjectEvent {
+  id: string;
+  projectId: string;
+  projectName: string;
+  type: "star_jump" | "health_change" | "release";
+  message: string;
+  createdAt: string;
+}
+
+export const getEvents = () => apiRequest<ProjectEvent[]>("/events");
+
 // Discovery
 export const discoverProjects = (params: {
   query: string;

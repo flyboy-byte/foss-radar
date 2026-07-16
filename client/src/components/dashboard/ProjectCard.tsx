@@ -26,10 +26,11 @@ function formatNumber(n: number) {
 }
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { getProjectHealth } from "@/lib/utils";
+import { getProjectHealth, getDelta } from "@/lib/utils";
 
 export function ProjectCard({ project }: ProjectCardProps) {
   const health = getProjectHealth(project.githubLastCommit);
+  const starDelta = getDelta(project.githubStars, project.previousGithubStars);
   const healthColorMap = {
     green: "bg-green-500",
     yellow: "bg-yellow-500",
@@ -85,6 +86,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
             <span className="flex items-center gap-1">
               <Star className="w-3 h-3" />
               {formatNumber(project.githubStars)}
+              {starDelta && (
+                <span className={starDelta.diff > 0 ? "text-green-400" : "text-red-400"}>
+                  {starDelta.text}
+                </span>
+              )}
             </span>
             {project.githubForks !== null && project.githubForks !== undefined && (
               <span className="flex items-center gap-1">
