@@ -20,3 +20,5 @@ export.json
 
 # Python virtualenv (cloud/server)
 venv/
+__pycache__/
+*.pyc
