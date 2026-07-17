@@ -44,8 +44,11 @@ npm run check:cloud   # from repo root — scoped to cloud/client only
 
 ## Auth
 
-Registration collects both a `username` and an `email` (both unique). Login accepts
-either as a single `identifier` field — `POST /api/auth/login` looks up
+Registration collects a `username`, an `email`, or both — at least one is required,
+neither is mandatory on its own (`User.email` and `User.username` are both nullable and
+unique; stored as `NULL` rather than `""` when absent, since SQLite's unique index
+treats every `NULL` as distinct but would collide on repeated empty strings). Login
+accepts either as a single `identifier` field — `POST /api/auth/login` looks up
 `User.username == identifier OR User.email == identifier`. Session cookies via
 Flask-Login, `SESSION_COOKIE_SECURE=true` in production.
 
@@ -86,12 +89,16 @@ has a catch-all route (`serve_frontend`) that serves `dist/public` with an
 `index.html` SPA fallback. Run `npm run build:cloud:client` before starting gunicorn in
 any setup that follows this same pattern, or `/` will 404 even though `/api/*` works.
 
-**Adding a column to an already-deployed database**: `db.create_all()` only creates
-missing *tables*, not missing *columns* on existing tables. Add new columns manually —
-e.g. `ALTER TABLE users ADD COLUMN username TEXT` plus a separate `CREATE UNIQUE INDEX`
-if the column needs uniqueness, since SQLite's `ALTER TABLE ADD COLUMN` can't attach a
-`UNIQUE` constraint directly. The deploy target's `sqlite3` CLI wasn't installed —
-used Python's stdlib `sqlite3` module over SSH instead, which needs no extra install.
+**Schema changes on an already-deployed database**: `db.create_all()` only creates
+missing *tables*, never alters existing ones. Additive columns: manual `ALTER TABLE ...
+ADD COLUMN` (+ a separate `CREATE UNIQUE INDEX` if it needs uniqueness — SQLite's
+`ALTER TABLE ADD COLUMN` can't attach `UNIQUE` directly). Changing a column's
+nullability (e.g. `email` going from `NOT NULL` to nullable): SQLite doesn't support
+`ALTER COLUMN` at all — if the table has no real data yet, the simplest path is
+dropping the table and letting `db.create_all()` recreate it from the current model on
+next boot (confirm the row count is actually disposable first). The deploy target's
+`sqlite3` CLI isn't installed — used Python's stdlib `sqlite3` module over SSH instead,
+no extra install needed.
 
 Deployment specifics (host details, ports, service names) are intentionally not recorded
 in this public repo — see local operator notes for the exact host and resume steps.
