@@ -42,18 +42,56 @@ no `database is locked` errors (SQLite WAL mode + `busy_timeout` handle the rest
 npm run check:cloud   # from repo root — scoped to cloud/client only
 ```
 
+## Auth
+
+Registration collects both a `username` and an `email` (both unique). Login accepts
+either as a single `identifier` field — `POST /api/auth/login` looks up
+`User.username == identifier OR User.email == identifier`. Session cookies via
+Flask-Login, `SESSION_COOKIE_SECURE=true` in production.
+
+## Public community board
+
+`/api/public/*` is a second, fully open project library — no auth on any route —
+scoped to a single well-known shared account (`public_user.py`, resolved by a fixed
+email so it survives a fresh `db.create_all()`, not by a hardcoded ID). Anyone can
+add/edit/delete/sync entries with zero login. It reuses the exact same CRUD/stats logic
+as the personal `/api/projects` routes (`routes/projects.py` and `routes/stats.py`
+expose `user_id`-parameterized internal functions that both the personal and public
+blueprints call) rather than duplicating it — one tested implementation, not two
+drifting apart.
+
+**The one thing that must never regress here**: a public route must never be able to
+reach a personal user's project by ID. Every public handler resolves the shared
+account's `user_id` and passes it into the same helpers personal routes use, which
+filter by `user_id` — that's the actual isolation boundary. Verified with a live test:
+attempting `GET`/`PATCH`/`DELETE` on a real personal project's ID through
+`/api/public/projects/<id>` returns 404, not the project.
+
+Logged-out visitors land on this board at `/` (split banner: public board pitch on the
+left with an inline add form, personal-login pitch with a LOGIN button on the right) —
+`client/src/pages/public/index.tsx`. Authenticated users see their personal dashboard
+at `/` instead, same as always.
+
 ## Deployment status
 
 Deployed and live behind a reverse proxy with TLS, running under systemd with
-`gunicorn --preload` (see above for why `--preload` matters). Public smoke test passed:
-register, seeded starter library, login/logout session handling, all verified against
-the real deployment.
+`gunicorn --preload` (see above for why `--preload` matters). Full public smoke test
+passed against the real deployment: username+email registration, login via both
+username and email, public board add/edit/delete/sync with zero auth, and the
+personal/public isolation check — all verified live, not just locally.
 
 Note: Flask serves the built frontend itself in this deployment (the reverse proxy here
 forwards everything to the app rather than serving static files directly) — `app.py`
 has a catch-all route (`serve_frontend`) that serves `dist/public` with an
 `index.html` SPA fallback. Run `npm run build:cloud:client` before starting gunicorn in
 any setup that follows this same pattern, or `/` will 404 even though `/api/*` works.
+
+**Adding a column to an already-deployed database**: `db.create_all()` only creates
+missing *tables*, not missing *columns* on existing tables. Add new columns manually —
+e.g. `ALTER TABLE users ADD COLUMN username TEXT` plus a separate `CREATE UNIQUE INDEX`
+if the column needs uniqueness, since SQLite's `ALTER TABLE ADD COLUMN` can't attach a
+`UNIQUE` constraint directly. The deploy target's `sqlite3` CLI wasn't installed —
+used Python's stdlib `sqlite3` module over SSH instead, which needs no extra install.
 
 Deployment specifics (host details, ports, service names) are intentionally not recorded
 in this public repo — see local operator notes for the exact host and resume steps.
