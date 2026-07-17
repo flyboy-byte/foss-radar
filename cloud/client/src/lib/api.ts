@@ -125,7 +125,7 @@ export const CATEGORIES = [
 ] as const;
 
 // Auth
-export const register = (username: string, email: string, password: string) =>
+export const register = (username: string | undefined, email: string | undefined, password: string) =>
   apiRequest<User>("/auth/register", { method: "POST", body: JSON.stringify({ username, email, password }) });
 
 export const login = (identifier: string, password: string) =>

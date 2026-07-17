@@ -15,7 +15,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
 
   const mutation = useMutation({
-    mutationFn: () => register(username.trim(), email.trim(), password),
+    mutationFn: () => register(username.trim() || undefined, email.trim() || undefined, password),
     onSuccess: (user) => {
       qc.setQueryData(["me"], user);
       toast({ title: "Welcome to FOSS Radar", description: "Your starter library is ready." });
@@ -27,7 +27,9 @@ export default function Register() {
     },
   });
 
-  const isValid = /^[a-zA-Z0-9_]{3,32}$/.test(username.trim()) && email.trim().length > 0 && password.length >= 8;
+  const usernameValid = username.trim().length === 0 || /^[a-zA-Z0-9_]{3,32}$/.test(username.trim());
+  const hasIdentifier = username.trim().length > 0 || email.trim().length > 0;
+  const isValid = hasIdentifier && usernameValid && password.length >= 8;
 
   return (
     <div className="flex h-screen items-center justify-center bg-background selection:bg-primary/30">
@@ -55,7 +57,7 @@ export default function Register() {
               autoFocus
               data-testid="input-username"
             />
-            <p className="text-[10px] font-mono text-muted-foreground/50">3-32 characters: letters, numbers, underscores.</p>
+            <p className="text-[10px] font-mono text-muted-foreground/50">Optional if email is set. 3-32 characters: letters, numbers, underscores.</p>
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Email</label>
@@ -66,6 +68,7 @@ export default function Register() {
               onChange={(e) => setEmail(e.target.value)}
               data-testid="input-email"
             />
+            <p className="text-[10px] font-mono text-muted-foreground/50">Optional if username is set.</p>
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Password</label>

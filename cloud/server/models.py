@@ -24,7 +24,10 @@ class User(db.Model, UserMixin):
     __tablename__ = "users"
 
     id = db.Column(db.Text, primary_key=True, default=new_id)
-    email = db.Column(db.Text, unique=True, nullable=False)
+    # Both nullable: registration requires at least one of username/email, not both —
+    # stored as NULL (not "") when absent, since SQLite's unique index treats every
+    # NULL as distinct but would collide on repeated empty strings.
+    email = db.Column(db.Text, unique=True, nullable=True)
     username = db.Column(db.Text, unique=True, nullable=True)
     password_hash = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.Text, nullable=False, default=now_iso)

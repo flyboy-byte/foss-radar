@@ -19,23 +19,25 @@ def _normalize(value: str) -> str:
 @auth_bp.post("/register")
 def register():
     body = request.get_json(silent=True) or {}
-    username = body.get("username")
-    email = body.get("email")
+    username = body.get("username") or None
+    email = body.get("email") or None
     password = body.get("password")
 
-    if not username or not isinstance(username, str) or not USERNAME_RE.match(_normalize(username)):
+    if not username and not email:
+        return jsonify({"message": "Provide a username, an email, or both"}), 400
+    if username is not None and (not isinstance(username, str) or not USERNAME_RE.match(_normalize(username))):
         return jsonify({"message": "Username must be 3-32 characters: lowercase letters, numbers, underscores"}), 400
-    if not email or not isinstance(email, str) or "@" not in email:
-        return jsonify({"message": "A valid email is required"}), 400
+    if email is not None and (not isinstance(email, str) or "@" not in email):
+        return jsonify({"message": "That doesn't look like a valid email"}), 400
     if not password or not isinstance(password, str) or len(password) < 8:
         return jsonify({"message": "Password must be at least 8 characters"}), 400
 
-    username = _normalize(username)
-    email = _normalize(email)
+    username = _normalize(username) if username else None
+    email = _normalize(email) if email else None
 
-    if User.query.filter_by(username=username).first():
+    if username and User.query.filter_by(username=username).first():
         return jsonify({"message": "That username is already taken"}), 409
-    if User.query.filter_by(email=email).first():
+    if email and User.query.filter_by(email=email).first():
         return jsonify({"message": "An account with that email already exists"}), 409
 
     user = User(username=username, email=email)

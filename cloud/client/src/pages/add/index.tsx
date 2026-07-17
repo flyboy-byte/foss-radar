@@ -50,7 +50,7 @@ export default function AddProject() {
     },
   });
 
-  const isValid = name.trim().length > 0 && url.trim().length > 0;
+  const isValid = name.trim().length > 0;
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -98,7 +98,7 @@ export default function AddProject() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Website URL *</label>
+              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Website URL</label>
               <Input
                 className="bg-secondary/20 border-white/5 focus-visible:ring-primary/50 font-mono text-sm"
                 placeholder="https://..."

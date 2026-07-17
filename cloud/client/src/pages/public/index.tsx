@@ -61,7 +61,7 @@ export default function PublicLanding() {
     },
   });
 
-  const isValid = name.trim().length > 0 && url.trim().length > 0;
+  const isValid = name.trim().length > 0;
 
   return (
     <div className="min-h-screen bg-background selection:bg-primary/30">
@@ -69,16 +69,17 @@ export default function PublicLanding() {
 
       {/* Split banner */}
       <div className="grid grid-cols-1 md:grid-cols-2 border-b border-white/5 relative z-10">
-        <div className="p-8 md:p-12 flex flex-col justify-center gap-3 border-b md:border-b-0 md:border-r border-white/5 bg-secondary/10">
-          <div className="flex items-center gap-2.5 text-primary font-heading font-bold text-lg">
-            <Users className="w-5 h-5" />
+        <div className="px-5 py-4 md:px-6 md:py-5 flex flex-col justify-center gap-1.5 border-b md:border-b-0 md:border-r border-white/5 bg-secondary/10">
+          <div className="flex items-center gap-2 text-primary font-heading font-bold text-sm">
+            <Users className="w-4 h-4" />
             <span>Public FOSS Radar</span>
           </div>
-          <p className="text-muted-foreground max-w-md">
-            Add what you think other people should check out. No account needed — this board is open to everyone.
+          <p className="text-muted-foreground text-sm max-w-md">
+            Add what you think other people should check out. No account needed.
           </p>
           <Button
-            className="w-fit bg-primary text-primary-foreground hover:bg-primary/90 mt-2"
+            size="sm"
+            className="w-fit bg-primary text-primary-foreground hover:bg-primary/90 mt-1"
             onClick={() => setShowAddForm((v) => !v)}
             data-testid="button-toggle-add"
           >
@@ -87,23 +88,23 @@ export default function PublicLanding() {
           </Button>
         </div>
 
-        <div className="p-8 md:p-12 flex flex-col justify-center gap-3">
-          <div className="flex items-center gap-2.5 text-primary font-heading font-bold text-lg">
-            <Radar className="w-5 h-5" />
+        <div className="px-5 py-4 md:px-6 md:py-5 flex flex-col justify-center gap-1.5">
+          <div className="flex items-center gap-2 text-primary font-heading font-bold text-sm">
+            <Radar className="w-4 h-4" />
             <span>FOSS Radar</span>
           </div>
-          <p className="text-muted-foreground max-w-md">
-            Your personal GitHub project tracker — private library, notes, ratings, and sync, just for you.
+          <p className="text-muted-foreground text-sm max-w-md">
+            Your personal GitHub project tracker — private library, notes, ratings, and sync.
           </p>
-          <div className="flex gap-3 mt-2">
+          <div className="flex gap-2 mt-1">
             <Link href="/login">
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-login">
+              <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-login">
                 <LogIn className="w-4 h-4 mr-2" />
                 LOGIN
               </Button>
             </Link>
             <Link href="/register">
-              <Button variant="outline" className="border-white/10" data-testid="button-register-link">
+              <Button size="sm" variant="outline" className="border-white/10" data-testid="button-register-link">
                 Register
               </Button>
             </Link>
