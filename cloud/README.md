@@ -44,10 +44,16 @@ npm run check:cloud   # from repo root — scoped to cloud/client only
 
 ## Deployment status
 
-Currently mid-deployment to its production host. The Flask service is built, installed,
-and running under systemd with `gunicorn --preload` (see above for why `--preload`
-matters). Final step — wiring up the reverse proxy and TLS in front of it — is blocked
-pending a manual configuration step outside this repo's scope.
+Deployed and live behind a reverse proxy with TLS, running under systemd with
+`gunicorn --preload` (see above for why `--preload` matters). Public smoke test passed:
+register, seeded starter library, login/logout session handling, all verified against
+the real deployment.
+
+Note: Flask serves the built frontend itself in this deployment (the reverse proxy here
+forwards everything to the app rather than serving static files directly) — `app.py`
+has a catch-all route (`serve_frontend`) that serves `dist/public` with an
+`index.html` SPA fallback. Run `npm run build:cloud:client` before starting gunicorn in
+any setup that follows this same pattern, or `/` will 404 even though `/api/*` works.
 
 Deployment specifics (host details, ports, service names) are intentionally not recorded
-in this public repo — see local operator notes for the exact resume steps.
+in this public repo — see local operator notes for the exact host and resume steps.
