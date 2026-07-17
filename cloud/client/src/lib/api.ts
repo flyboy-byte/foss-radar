@@ -125,13 +125,42 @@ export const CATEGORIES = [
 ] as const;
 
 // Auth
-export const register = (email: string, password: string) =>
-  apiRequest<User>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
+export const register = (username: string, email: string, password: string) =>
+  apiRequest<User>("/auth/register", { method: "POST", body: JSON.stringify({ username, email, password }) });
 
-export const login = (email: string, password: string) =>
-  apiRequest<User>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+export const login = (identifier: string, password: string) =>
+  apiRequest<User>("/auth/login", { method: "POST", body: JSON.stringify({ identifier, password }) });
 
 export const logout = () =>
   apiRequest<{ success: boolean }>("/auth/logout", { method: "POST" });
 
 export const getMe = () => apiRequest<User>("/auth/me");
+
+// Public community board — no auth required, shared library anyone can add/edit/remove from
+export const getPublicProjects = (params?: { q?: string; category?: string; status?: string; tag?: string }) => {
+  const search = new URLSearchParams();
+  if (params?.q) search.set("q", params.q);
+  if (params?.category && params.category !== "all") search.set("category", params.category);
+  if (params?.status && params.status !== "all") search.set("status", params.status);
+  if (params?.tag) search.set("tag", params.tag);
+  const qs = search.toString();
+  return apiRequest<Project[]>(`/public/projects${qs ? `?${qs}` : ""}`);
+};
+
+export const createPublicProject = (data: InsertProject) =>
+  apiRequest<Project>("/public/projects", { method: "POST", body: JSON.stringify(data) });
+
+export const updatePublicProject = (id: string, data: UpdateProject) =>
+  apiRequest<Project>(`/public/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+
+export const deletePublicProject = (id: string) =>
+  apiRequest<{ success: boolean }>(`/public/projects/${id}`, { method: "DELETE" });
+
+export const monitorPublicProject = (id: string) =>
+  apiRequest<{ project: Project; githubInfo: any }>(`/public/projects/${id}/monitor`, { method: "POST" });
+
+export const monitorPublicAll = () =>
+  apiRequest<{ results: any[]; total: number }>("/public/monitor/all", { method: "POST" });
+
+export const getPublicStats = () =>
+  apiRequest<{ total: number }>("/public/stats");

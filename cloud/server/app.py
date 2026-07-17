@@ -57,6 +57,8 @@ def create_app():
         from routes.events import events_bp
         from routes.stats import stats_bp
         from routes.export import export_bp
+        from routes.public import public_bp
+        from public_user import get_or_create_public_user
 
         app.register_blueprint(auth_bp)
         app.register_blueprint(projects_bp)
@@ -65,6 +67,9 @@ def create_app():
         app.register_blueprint(events_bp)
         app.register_blueprint(stats_bp)
         app.register_blueprint(export_bp)
+        app.register_blueprint(public_bp)
+
+        get_or_create_public_user()
 
     # Serve the built React SPA — nginx proxies everything to gunicorn on this box
     # (matches the other apps' convention here), so unlike a dev setup with a

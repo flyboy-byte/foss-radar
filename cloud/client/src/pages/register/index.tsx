@@ -10,11 +10,12 @@ import { Radar } from "lucide-react";
 export default function Register() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const mutation = useMutation({
-    mutationFn: () => register(email.trim(), password),
+    mutationFn: () => register(username.trim(), email.trim(), password),
     onSuccess: (user) => {
       qc.setQueryData(["me"], user);
       toast({ title: "Welcome to FOSS Radar", description: "Your starter library is ready." });
@@ -26,7 +27,7 @@ export default function Register() {
     },
   });
 
-  const isValid = email.trim().length > 0 && password.length >= 8;
+  const isValid = /^[a-zA-Z0-9_]{3,32}$/.test(username.trim()) && email.trim().length > 0 && password.length >= 8;
 
   return (
     <div className="flex h-screen items-center justify-center bg-background selection:bg-primary/30">
@@ -45,13 +46,24 @@ export default function Register() {
           }}
         >
           <div className="space-y-1.5">
+            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Username</label>
+            <Input
+              type="text"
+              className="bg-secondary/20 border-white/5 focus-visible:ring-primary/50 font-mono"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoFocus
+              data-testid="input-username"
+            />
+            <p className="text-[10px] font-mono text-muted-foreground/50">3-32 characters: letters, numbers, underscores.</p>
+          </div>
+          <div className="space-y-1.5">
             <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Email</label>
             <Input
               type="email"
               className="bg-secondary/20 border-white/5 focus-visible:ring-primary/50 font-mono"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoFocus
               data-testid="input-email"
             />
           </div>

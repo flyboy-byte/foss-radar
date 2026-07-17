@@ -1,11 +1,14 @@
 import type { Project } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Star, Link as LinkIcon, Github, GitFork, Eye, Clock } from "lucide-react";
+import { Star, Link as LinkIcon, Github, GitFork, Eye, Clock, X } from "lucide-react";
 import { Link } from "wouter";
 
 interface ProjectCardProps {
   project: Project;
+  /** Public-board cards have no personal detail page to link to, and can be removed inline. */
+  linkToDetail?: boolean;
+  onDelete?: () => void;
 }
 
 function StatusDot({ status }: { status: Project['status'] }) {
@@ -28,7 +31,7 @@ function formatNumber(n: number) {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getProjectHealth, getDelta } from "@/lib/utils";
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, linkToDetail = true, onDelete }: ProjectCardProps) {
   const health = getProjectHealth(project.githubLastCommit);
   const starDelta = getDelta(project.githubStars, project.previousGithubStars);
   const healthColorMap = {
@@ -60,7 +63,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </div>
 
         <CardTitle className="text-lg font-bold font-heading text-foreground group-hover:text-primary transition-colors flex items-center gap-2">
-          <Link href={`/project/${project.id}`}>{project.name}</Link>
+          {linkToDetail ? <Link href={`/project/${project.id}`}>{project.name}</Link> : <span>{project.name}</span>}
           {project.githubLastCommit && (
             <TooltipProvider>
               <Tooltip>
@@ -131,6 +134,15 @@ export function ProjectCard({ project }: ProjectCardProps) {
             onClick={(e) => e.stopPropagation()}>
             <LinkIcon className="w-3.5 h-3.5" />
           </a>
+          {onDelete && (
+            <button
+              className="text-muted-foreground hover:text-red-400 transition-colors p-1"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              aria-label={`Remove ${project.name}`}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </CardFooter>
     </Card>

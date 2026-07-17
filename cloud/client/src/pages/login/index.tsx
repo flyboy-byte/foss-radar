@@ -10,11 +10,11 @@ import { Radar } from "lucide-react";
 export default function Login() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
   const mutation = useMutation({
-    mutationFn: () => login(email.trim(), password),
+    mutationFn: () => login(identifier.trim(), password),
     onSuccess: (user) => {
       qc.setQueryData(["me"], user);
       navigate("/");
@@ -25,7 +25,7 @@ export default function Login() {
     },
   });
 
-  const isValid = email.trim().length > 0 && password.length > 0;
+  const isValid = identifier.trim().length > 0 && password.length > 0;
 
   return (
     <div className="flex h-screen items-center justify-center bg-background selection:bg-primary/30">
@@ -44,14 +44,14 @@ export default function Login() {
           }}
         >
           <div className="space-y-1.5">
-            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Email</label>
+            <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Username or Email</label>
             <Input
-              type="email"
+              type="text"
               className="bg-secondary/20 border-white/5 focus-visible:ring-primary/50 font-mono"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               autoFocus
-              data-testid="input-email"
+              data-testid="input-identifier"
             />
           </div>
           <div className="space-y-1.5">

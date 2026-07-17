@@ -25,6 +25,7 @@ class User(db.Model, UserMixin):
 
     id = db.Column(db.Text, primary_key=True, default=new_id)
     email = db.Column(db.Text, unique=True, nullable=False)
+    username = db.Column(db.Text, unique=True, nullable=True)
     password_hash = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.Text, nullable=False, default=now_iso)
 
@@ -35,7 +36,7 @@ class User(db.Model, UserMixin):
         return check_password_hash(self.password_hash, password)
 
     def to_dict(self):
-        return {"id": self.id, "email": self.email, "createdAt": self.created_at}
+        return {"id": self.id, "email": self.email, "username": self.username, "createdAt": self.created_at}
 
 
 class Project(db.Model):

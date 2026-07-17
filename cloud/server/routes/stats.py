@@ -27,10 +27,8 @@ def _classify_monitoring_state(project: Project):
     return "slow"
 
 
-@stats_bp.get("")
-@login_required
-def stats():
-    projects = Project.query.filter_by(user_id=current_user.id).all()
+def compute_stats_for(user_id):
+    projects = Project.query.filter_by(user_id=user_id).all()
 
     categories = {}
     for p in projects:
@@ -49,7 +47,7 @@ def stats():
         elif state == "active":
             active_repos += 1
 
-    return jsonify({
+    return {
         "total": len(projects),
         "using": sum(1 for p in projects if p.status == "Using"),
         "wantToTry": sum(1 for p in projects if p.status == "Want to Try"),
@@ -62,4 +60,10 @@ def stats():
         "neverMonitored": never_monitored,
         "staleRepos": stale_repos,
         "activeRepos": active_repos,
-    })
+    }
+
+
+@stats_bp.get("")
+@login_required
+def stats():
+    return jsonify(compute_stats_for(current_user.id))

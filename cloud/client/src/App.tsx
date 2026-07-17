@@ -10,6 +10,7 @@ import Discover from "@/pages/discover";
 import AddProject from "@/pages/add";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import PublicLanding from "@/pages/public";
 import NotFound from "@/pages/not-found";
 
 function AuthedRouter() {
@@ -29,9 +30,10 @@ function AuthedRouter() {
 function GuestRouter() {
   return (
     <Switch>
+      <Route path="/" component={PublicLanding} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route><Redirect to="/login" /></Route>
+      <Route><Redirect to="/" /></Route>
     </Switch>
   );
 }

@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
 from extensions import db
-from models import Project, CATEGORIES, STATUSES
+from models import Project, ProjectEvent, CATEGORIES, STATUSES, now_iso
 from helpers import normalize_github_url, find_duplicate_project, duplicate_conflict
 
 projects_bp = Blueprint("projects", __name__, url_prefix="/api/projects")
@@ -27,16 +27,13 @@ def _validate_insert(body: dict, partial: bool):
     return errors
 
 
-@projects_bp.get("")
-@login_required
-def list_projects():
-    q = request.args.get("q")
-    category = request.args.get("category")
-    status = request.args.get("status")
-    tag = request.args.get("tag")
+# ── Shared logic, parameterized by user_id ──────────────────────────────────
+# Reused by both the personal blueprint below (scoped to current_user.id) and
+# routes/public.py (scoped to the shared public account's id) — one tested
+# implementation instead of two copies drifting apart.
 
-    query = Project.query.filter_by(user_id=current_user.id)
-    projects = query.order_by(Project.updated_at.desc()).all()
+def list_projects_for(user_id, q=None, category=None, status=None, tag=None):
+    projects = Project.query.filter_by(user_id=user_id).order_by(Project.updated_at.desc()).all()
 
     if q:
         lower = q.lower()
@@ -49,34 +46,29 @@ def list_projects():
     if tag:
         projects = [p for p in projects if tag in (p.tags or [])]
 
-    return jsonify([p.to_dict() for p in projects])
+    return [p.to_dict() for p in projects]
 
 
-@projects_bp.get("/<project_id>")
-@login_required
-def get_project(project_id):
-    project = Project.query.filter_by(id=project_id, user_id=current_user.id).first()
-    if not project:
-        return jsonify({"message": "Project not found"}), 404
-    return jsonify(project.to_dict())
+def get_project_for(user_id, project_id):
+    project = Project.query.filter_by(id=project_id, user_id=user_id).first()
+    return project.to_dict() if project else None
 
 
-@projects_bp.post("")
-@login_required
-def create_project():
-    body = request.get_json(silent=True) or {}
+def create_project_for(user_id, body: dict):
+    """Returns (result_dict, status_code). result_dict has either the created
+    project or a {message, [conflict]} error payload."""
     errors = _validate_insert(body, partial=False)
     if errors:
-        return jsonify({"message": "Invalid data", "errors": errors}), 400
+        return {"message": "Invalid data", "errors": errors}, 400
 
     normalized_github = normalize_github_url(body.get("githubUrl") or body.get("url")) or body.get("githubUrl")
-    duplicate = find_duplicate_project(current_user.id, name=body.get("name"), url=body.get("url"),
+    duplicate = find_duplicate_project(user_id, name=body.get("name"), url=body.get("url"),
                                         github_url=normalized_github)
     if duplicate:
-        return jsonify(duplicate_conflict(duplicate)), 409
+        return duplicate_conflict(duplicate), 409
 
     project = Project(
-        user_id=current_user.id,
+        user_id=user_id,
         name=body["name"],
         description=body.get("description", ""),
         category=body["category"],
@@ -91,29 +83,26 @@ def create_project():
     )
     db.session.add(project)
     db.session.commit()
-    return jsonify(project.to_dict()), 201
+    return project.to_dict(), 201
 
 
-@projects_bp.patch("/<project_id>")
-@login_required
-def update_project(project_id):
-    project = Project.query.filter_by(id=project_id, user_id=current_user.id).first()
+def update_project_for(user_id, project_id, body: dict):
+    project = Project.query.filter_by(id=project_id, user_id=user_id).first()
     if not project:
-        return jsonify({"message": "Project not found"}), 404
+        return {"message": "Project not found"}, 404
 
-    body = request.get_json(silent=True) or {}
     errors = _validate_insert(body, partial=True)
     if errors:
-        return jsonify({"message": "Invalid data", "errors": errors}), 400
+        return {"message": "Invalid data", "errors": errors}, 400
 
     next_url = body.get("url", project.url)
     next_github = body.get("githubUrl", project.github_url)
-    duplicate = find_duplicate_project(current_user.id, name=body.get("name", project.name), url=next_url,
+    duplicate = find_duplicate_project(user_id, name=body.get("name", project.name), url=next_url,
                                         github_url=next_github, id_to_ignore=project.id)
     if duplicate:
         conflict = duplicate_conflict(duplicate)
         conflict["message"] = f'Update would duplicate "{duplicate.name}"'
-        return jsonify(conflict), 409
+        return conflict, 409
 
     normalized_github = normalize_github_url(next_github) or next_github
 
@@ -128,21 +117,63 @@ def update_project(project_id):
     if "githubUrl" in body:
         project.github_url = normalized_github
 
-    from models import now_iso
     project.updated_at = now_iso()
     db.session.commit()
-    return jsonify(project.to_dict())
+    return project.to_dict(), 200
+
+
+def delete_project_for(user_id, project_id):
+    project = Project.query.filter_by(id=project_id, user_id=user_id).first()
+    if not project:
+        return {"message": "Project not found"}, 404
+
+    ProjectEvent.query.filter_by(project_id=project_id, user_id=user_id).delete()
+    db.session.delete(project)
+    db.session.commit()
+    return {"success": True}, 200
+
+
+# ── Personal routes (auth-scoped to current_user) ───────────────────────────
+
+@projects_bp.get("")
+@login_required
+def list_projects():
+    return jsonify(list_projects_for(
+        current_user.id,
+        q=request.args.get("q"),
+        category=request.args.get("category"),
+        status=request.args.get("status"),
+        tag=request.args.get("tag"),
+    ))
+
+
+@projects_bp.get("/<project_id>")
+@login_required
+def get_project(project_id):
+    result = get_project_for(current_user.id, project_id)
+    if not result:
+        return jsonify({"message": "Project not found"}), 404
+    return jsonify(result)
+
+
+@projects_bp.post("")
+@login_required
+def create_project():
+    body = request.get_json(silent=True) or {}
+    result, status = create_project_for(current_user.id, body)
+    return jsonify(result), status
+
+
+@projects_bp.patch("/<project_id>")
+@login_required
+def update_project(project_id):
+    body = request.get_json(silent=True) or {}
+    result, status = update_project_for(current_user.id, project_id, body)
+    return jsonify(result), status
 
 
 @projects_bp.delete("/<project_id>")
 @login_required
 def delete_project(project_id):
-    project = Project.query.filter_by(id=project_id, user_id=current_user.id).first()
-    if not project:
-        return jsonify({"message": "Project not found"}), 404
-
-    from models import ProjectEvent
-    ProjectEvent.query.filter_by(project_id=project_id, user_id=current_user.id).delete()
-    db.session.delete(project)
-    db.session.commit()
-    return jsonify({"success": True})
+    result, status = delete_project_for(current_user.id, project_id)
+    return jsonify(result), status
