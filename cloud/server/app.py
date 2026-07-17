@@ -5,11 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from sqlalchemy import event
 
 from extensions import db, login_manager
 from models import User
+
+DIST_DIR = Path(__file__).resolve().parent.parent / "dist" / "public"
 
 
 def _enable_sqlite_pragmas(dbapi_connection, connection_record):
@@ -63,5 +65,19 @@ def create_app():
         app.register_blueprint(events_bp)
         app.register_blueprint(stats_bp)
         app.register_blueprint(export_bp)
+
+    # Serve the built React SPA — nginx proxies everything to gunicorn on this box
+    # (matches the other apps' convention here), so unlike a dev setup with a
+    # separate static file server, Flask itself needs to serve the built assets.
+    # Registered after the API blueprints; Werkzeug's routing already prioritizes
+    # the blueprints' literal /api/... rules over this path:path catch-all, so
+    # order here doesn't change matching, only readability.
+    @app.route("/", defaults={"path": ""})
+    @app.route("/<path:path>")
+    def serve_frontend(path):
+        target = DIST_DIR / path if path else None
+        if target and target.is_file():
+            return send_from_directory(DIST_DIR, path)
+        return send_from_directory(DIST_DIR, "index.html")
 
     return app
