@@ -101,8 +101,15 @@ STARTER_PROJECTS = [
 ]
 
 
+# A new cloud signup gets a small taste of the library, not the full local-app
+# starter set — Jellyfin, Syncthing, and Hyprland span three categories and two
+# statuses (Using / Want to Try) so the empty states and filters are visibly not empty.
+NEW_USER_STARTER_NAMES = {"Jellyfin", "Syncthing", "Hyprland"}
+NEW_USER_STARTER_PROJECTS = [p for p in STARTER_PROJECTS if p["name"] in NEW_USER_STARTER_NAMES]
+
+
 def seed_user_library(user_id: str):
-    for data in STARTER_PROJECTS:
+    for data in NEW_USER_STARTER_PROJECTS:
         db.session.add(Project(
             user_id=user_id,
             name=data["name"],

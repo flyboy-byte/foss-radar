@@ -40,7 +40,22 @@ export type UpdateProject = Partial<InsertProject>;
 
 export interface User {
   id: string;
-  email: string;
+  email: string | null;
   username: string | null;
   createdAt: string;
+}
+
+export interface Stats {
+  total: number;
+  using: number;
+  wantToTry: number;
+  archived: number;
+  categories: Record<string, number>;
+  avgRating: number;
+  withGitHub: number;
+  monitored: number;
+  totalStars: number;
+  neverMonitored: number;
+  staleRepos: number;
+  activeRepos: number;
 }

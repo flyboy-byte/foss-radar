@@ -75,6 +75,36 @@ left with an inline add form, personal-login pitch with a LOGIN button on the ri
 `client/src/pages/public/index.tsx`. Authenticated users see their personal dashboard
 at `/` instead, same as always.
 
+## Public board search, filter, and stats
+
+`GET /api/public/projects` supports `q`, `category`, `status`, and `tag` query params
+(same filter logic as personal `/api/projects`), and `GET /api/public/stats` returns the
+full stats payload (total, star sum, category breakdown, etc.) — the frontend now
+exposes all of this: a search box, a category filter, a client-side sort (recently
+added / most stars / name), and a 3-up stats row (projects, total stars, projects with
+a GitHub link). There is no server-side sort param; sort is applied client-side over
+whatever `list_public_projects` returns.
+
+## New-user starter library
+
+Registering an account seeds a *small* starter set — Jellyfin, Syncthing, and Hyprland
+(`NEW_USER_STARTER_PROJECTS` in `seed.py`), one filtered down from the full 8-project
+`STARTER_PROJECTS` list that the local single-user app seeds on first boot. Spans three
+categories and both `Using`/`Want to Try` statuses so a fresh account's filters and
+empty states aren't testing against a wall of unrelated data. If the starter set needs
+to grow or change, edit `NEW_USER_STARTER_NAMES` in `seed.py` rather than adding new
+entries directly to `NEW_USER_STARTER_PROJECTS` — it derives from `STARTER_PROJECTS` by
+name so the two lists can't drift on shared fields (description, tags, etc.).
+
+## Logout
+
+The nav (`Sidebar.tsx`) is desktop-only (`hidden md:flex`), so a small-screen-only fixed
+logout button is rendered alongside it — without it, mobile has no logout path at all.
+The desktop logout control is a labeled button, not an icon-only one. The account label
+shown next to it prefers `username`, falls back to `email`, then a generic "Signed in" —
+`User.email` is nullable (see Auth above), so a username-only account has `email: null`
+and a naive `{user.email}` render would show nothing.
+
 ## Deployment status
 
 Deployed and live behind a reverse proxy with TLS, running under systemd with
