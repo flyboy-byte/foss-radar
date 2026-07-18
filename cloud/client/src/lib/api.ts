@@ -1,4 +1,4 @@
-import { type Project, type InsertProject, type UpdateProject, type User } from "./types";
+import { type Project, type InsertProject, type UpdateProject, type User, type Stats } from "./types";
 import { queryClient } from "./queryClient";
 
 export class ApiError extends Error {
@@ -104,21 +104,7 @@ export const importProject = (data: {
 }) => apiRequest<Project>("/discover/import", { method: "POST", body: JSON.stringify(data) });
 
 // Stats & Export
-export const getStats = () =>
-  apiRequest<{
-    total: number;
-    using: number;
-    wantToTry: number;
-    archived: number;
-    categories: Record<string, number>;
-    avgRating: number;
-    withGitHub: number;
-    monitored: number;
-    totalStars: number;
-    neverMonitored: number;
-    staleRepos: number;
-    activeRepos: number;
-  }>("/stats");
+export const getStats = () => apiRequest<Stats>("/stats");
 
 export const CATEGORIES = [
   "Linux Apps", "Self-Hosted", "Android Apps", "Ham Radio", "Utilities", "Customization"
@@ -162,5 +148,4 @@ export const monitorPublicProject = (id: string) =>
 export const monitorPublicAll = () =>
   apiRequest<{ results: any[]; total: number }>("/public/monitor/all", { method: "POST" });
 
-export const getPublicStats = () =>
-  apiRequest<{ total: number }>("/public/stats");
+export const getPublicStats = () => apiRequest<Stats>("/public/stats");

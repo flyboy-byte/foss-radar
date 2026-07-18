@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  ApiError, getPublicProjects, createPublicProject, deletePublicProject,
+  ApiError, getPublicProjects, getPublicStats, createPublicProject, deletePublicProject,
   monitorPublicAll, CATEGORIES,
 } from "@/lib/api";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
@@ -10,7 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Radar, Plus, LogIn, RefreshCw, Users } from "lucide-react";
+import { Radar, Plus, LogIn, RefreshCw, Users, Search, Star, Layers, Github } from "lucide-react";
+
+const SORTS = [
+  { value: "recent", label: "Recently added" },
+  { value: "stars", label: "Most stars" },
+  { value: "name", label: "Name (A-Z)" },
+] as const;
 
 export default function PublicLanding() {
   const qc = useQueryClient();
@@ -20,10 +26,31 @@ export default function PublicLanding() {
   const [githubUrl, setGithubUrl] = useState("");
   const [category, setCategory] = useState("Utilities");
 
-  const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["public-projects"],
-    queryFn: () => getPublicProjects(),
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [sort, setSort] = useState<(typeof SORTS)[number]["value"]>("recent");
+
+  const { data: rawProjects = [], isLoading } = useQuery({
+    queryKey: ["public-projects", searchQuery, filterCategory],
+    queryFn: () => getPublicProjects({
+      q: searchQuery || undefined,
+      category: filterCategory,
+    }),
   });
+
+  const { data: stats } = useQuery({
+    queryKey: ["public-stats"],
+    queryFn: getPublicStats,
+    staleTime: 60_000,
+  });
+
+  const projects = useMemo(() => {
+    const sorted = [...rawProjects];
+    if (sort === "stars") sorted.sort((a, b) => (b.githubStars ?? 0) - (a.githubStars ?? 0));
+    else if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    else sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return sorted;
+  }, [rawProjects, sort]);
 
   const addMutation = useMutation({
     mutationFn: () => createPublicProject({
@@ -35,6 +62,7 @@ export default function PublicLanding() {
     onSuccess: (p) => {
       toast({ title: `"${p.name}" added to the public radar` });
       qc.invalidateQueries({ queryKey: ["public-projects"] });
+      qc.invalidateQueries({ queryKey: ["public-stats"] });
       setName(""); setUrl(""); setGithubUrl(""); setShowAddForm(false);
     },
     onError: (err) => {
@@ -48,6 +76,7 @@ export default function PublicLanding() {
     onSuccess: () => {
       toast({ title: "Removed from the public radar" });
       qc.invalidateQueries({ queryKey: ["public-projects"] });
+      qc.invalidateQueries({ queryKey: ["public-stats"] });
     },
     onError: () => toast({ title: "Failed to remove project", variant: "destructive" }),
   });
@@ -58,6 +87,7 @@ export default function PublicLanding() {
       const success = data.results.filter((r: any) => r.success).length;
       toast({ title: `Synced ${success}/${data.total} projects` });
       qc.invalidateQueries({ queryKey: ["public-projects"] });
+      qc.invalidateQueries({ queryKey: ["public-stats"] });
     },
   });
 
@@ -172,6 +202,63 @@ export default function PublicLanding() {
           </Button>
         </div>
 
+        {stats && (
+          <div className="grid grid-cols-3 gap-4">
+            <div className="glass-panel rounded-lg p-4 border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Projects</span>
+                <Layers className="w-4 h-4 text-primary" />
+              </div>
+              <div className="text-2xl font-heading font-bold">{stats.total}</div>
+            </div>
+            <div className="glass-panel rounded-lg p-4 border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Total Stars</span>
+                <Star className="w-4 h-4 text-orange-400" />
+              </div>
+              <div className="text-2xl font-heading font-bold">{stats.totalStars.toLocaleString()}</div>
+            </div>
+            <div className="glass-panel rounded-lg p-4 border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">On GitHub</span>
+                <Github className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="text-2xl font-heading font-bold">{stats.withGitHub}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1 max-w-xl">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search community projects..."
+              className="pl-9 bg-card/50 border-white/10 focus-visible:ring-primary/50 font-mono text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              data-testid="input-public-search"
+            />
+          </div>
+          <Select value={filterCategory} onValueChange={setFilterCategory} data-testid="select-public-category">
+            <SelectTrigger className="w-full sm:w-[160px] bg-card border-white/10 font-mono text-xs">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-white/10">
+              <SelectItem value="all">All Categories</SelectItem>
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)} data-testid="select-public-sort">
+            <SelectTrigger className="w-full sm:w-[170px] bg-card border-white/10 font-mono text-xs">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-white/10">
+              {SORTS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(4)].map((_, i) => (
@@ -181,8 +268,21 @@ export default function PublicLanding() {
         ) : projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center glass-panel rounded-lg border-dashed">
             <Radar className="w-12 h-12 text-muted-foreground/30 mb-4" />
-            <h3 className="text-xl font-heading font-medium">Nothing here yet</h3>
-            <p className="text-muted-foreground mt-2 font-mono text-sm">Be the first to add something worth checking out.</p>
+            <h3 className="text-xl font-heading font-medium">
+              {searchQuery || filterCategory !== "all" ? "No matches" : "Nothing here yet"}
+            </h3>
+            <p className="text-muted-foreground mt-2 font-mono text-sm">
+              {searchQuery || filterCategory !== "all"
+                ? "Try a different search or category."
+                : "Be the first to add something worth checking out."}
+            </p>
+            {(searchQuery || filterCategory !== "all") && (
+              <Button variant="outline" className="mt-6 border-white/10" onClick={() => {
+                setSearchQuery(""); setFilterCategory("all");
+              }}>
+                Clear Filters
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

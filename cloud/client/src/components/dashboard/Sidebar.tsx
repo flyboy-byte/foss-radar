@@ -25,7 +25,23 @@ export function Sidebar() {
   });
 
   return (
-    <aside className="w-60 border-r border-white/5 bg-card/50 backdrop-blur-sm h-screen flex-col hidden md:flex sticky top-0 shrink-0">
+    <>
+      {/* Mobile logout: the aside below is desktop-only (hidden md:flex), so
+          without this, small screens have no logout access at all. Fixed
+          positioning keeps it out of the parent flex layout entirely. */}
+      {user && (
+        <button
+          className="md:hidden fixed top-3 right-3 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-white/10 bg-card/90 backdrop-blur-xl text-muted-foreground hover:text-red-400 hover:border-red-400/30 transition-colors text-xs font-mono shadow-lg"
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
+          data-testid="button-logout-mobile"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          {logoutMutation.isPending ? "Logging out..." : "Log out"}
+        </button>
+      )}
+
+      <aside className="w-60 border-r border-white/5 bg-card/50 backdrop-blur-sm h-screen flex-col hidden md:flex sticky top-0 shrink-0">
       <div className="p-5 pb-4">
         <Link href="/">
           <div className="flex items-center gap-2.5 text-primary font-heading font-bold text-lg cursor-pointer group">
@@ -97,21 +113,23 @@ export function Sidebar() {
         </div>
 
         {user && (
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5">
-            <span className="text-[10px] font-mono text-muted-foreground/50 truncate" title={user.email}>
-              {user.email}
+          <div className="pt-2 border-t border-white/5 space-y-2">
+            <span className="block text-[10px] font-mono text-muted-foreground/50 truncate" title={user.username || user.email || undefined}>
+              {user.username || user.email || "Signed in"}
             </span>
             <button
-              className="flex items-center gap-1 text-muted-foreground/60 hover:text-red-400 transition-colors shrink-0"
+              className="flex items-center justify-center gap-2 w-full px-3 py-1.5 rounded-md border border-white/5 bg-secondary/20 text-muted-foreground hover:text-red-400 hover:border-red-400/30 hover:bg-red-400/5 transition-colors text-xs font-mono"
               onClick={() => logoutMutation.mutate()}
               disabled={logoutMutation.isPending}
               data-testid="button-logout"
             >
               <LogOut className="w-3.5 h-3.5" />
+              {logoutMutation.isPending ? "Logging out..." : "Log out"}
             </button>
           </div>
         )}
       </div>
     </aside>
+    </>
   );
 }
