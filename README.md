@@ -6,6 +6,8 @@ FOSS Radar is a local-first single-user app for people who keep long mental list
 
 ![FOSS Radar dashboard](docs/screenshot.png)
 
+> This README covers the local single-user app (`client/`, `server/`, `shared/`). A separate multi-user version with accounts and a public community board lives in [`cloud/`](cloud/README.md) — a distinct Flask + SQLAlchemy codebase, not a mode of this app.
+
 ## What It Does
 
 - Track projects in a personal library with categories, status, tags, notes, setup notes, and ratings
