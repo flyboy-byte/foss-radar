@@ -24,6 +24,18 @@ There is no test runner configured in this repo (no `test` script, no test files
 
 Production builds must be started from the repo root — `fossradar.db` and `dist/public` are resolved as relative paths.
 
+`script/` holds Linux deployment helpers (`bootstrap-linux.sh`, `install-desktop-entry.sh`, `install-user-service.sh`, `install-system-service.sh`) alongside `build.ts` — these are optional install-time conveniences, not part of the dev loop.
+
+### `cloud/` commands
+
+These build/typecheck the `cloud/` frontend only, from the repo root — the Flask backend has its own venv/pip flow documented in `cloud/README.md`:
+
+```bash
+npm run dev:cloud:client    # Vite dev server for cloud/client (port 5001), proxies /api to Flask on :8000
+npm run build:cloud:client  # builds cloud/dist/public
+npm run check:cloud         # tsc -p cloud/tsconfig.json
+```
+
 ## Architecture
 
 **Single Express process serves everything.** `server/index.ts` is the entry point: it hand-rolls `.env` loading (no dotenv dependency), runs preflight checks (`server/runtime.ts` — Node version window `>=20 <25`, writable data dir), seeds the DB if empty (`server/seed.ts`), registers all API routes (`server/routes.ts`), then either mounts Vite in middleware mode (dev) or serves the static `dist/public` build (`server/static.ts`, production). Route registration happens before Vite's catch-all so `/api/*` always wins.
